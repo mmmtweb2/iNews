@@ -19,7 +19,7 @@ function App() {
   const fetchNews = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/news');
+      const response = await fetch('/api/news');
       const data = await response.json();
       if (data.categories && Array.isArray(data.categories)) {
         setCategories(data.categories);

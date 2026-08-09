@@ -1,17 +1,22 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const cron = require('node-cron');
 const Parser = require('rss-parser');
+const { processNewsWithAI } = require('./processor');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// --- הגדרת שמות הקבצים (החוק החדש) ---
+// --- הגדרת שמות הקבצים ---
 const RAW_FILE = path.join(__dirname, 'raw.json');   // קלט
 const FINAL_FILE = path.join(__dirname, 'final.json'); // פלט (לאתר)
+const PUBLIC_DIR = path.join(__dirname, 'public'); // build סטטי של הקליינט
 
 app.use(cors());
+app.use(express.static(PUBLIC_DIR));
 
 // --- חלק א': שרת ה-API ---
 app.get('/api/news', (req, res) => {
@@ -67,13 +72,27 @@ async function fetchRSS() {
         }
     }
 
+    // אם כל המקורות נכשלו, לא לדרוס נתונים טובים בקובץ ריק
+    if (allNews.length === 0) {
+        console.log("⚠️ RSS: כל המקורות נכשלו, raw.json נשאר ללא שינוי");
+        return;
+    }
+
     fs.writeFileSync(RAW_FILE, JSON.stringify(allNews, null, 2));
     console.log(`✅ RSS: נשמרו ${allNews.length} ידיעות לקובץ raw.json`);
 }
 
-// הפעלת השרת
+// --- חלק ג': הרצה מלאה (RSS + עיבוד AI) ---
+async function refreshNews() {
+    await fetchRSS();
+    await processNewsWithAI();
+}
+
+// הרצה ראשונית כשהשרת עולה, ולאחר מכן כל 30 דקות
+refreshNews();
+cron.schedule('*/30 * * * *', refreshNews);
+
 app.listen(PORT, () => {
-    console.log(`🚀 השרת רץ: http://localhost:${PORT}`);
-    // הרצת משיכה ראשונית כשהשרת עולה
-    fetchRSS();
+    console.log(`🚀 השרת רץ על פורט ${PORT}`);
+    console.log(`📡 API זמין ב-/api/news`);
 });
