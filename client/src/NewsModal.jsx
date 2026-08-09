@@ -1,13 +1,6 @@
 import { useEffect } from 'react';
-import { X, ArrowUpRight, Clock, ShieldCheck, Zap } from 'lucide-react';
-
-const getSentimentConfig = (sentiment) => {
-  switch (sentiment) {
-    case 'positive': return { color: 'text-emerald-600', bg: 'bg-emerald-50', icon: <ShieldCheck size={16} /> };
-    case 'negative': return { color: 'text-rose-600', bg: 'bg-rose-50', icon: <Zap size={16} /> };
-    default: return { color: 'text-slate-500', bg: 'bg-slate-50', icon: <Clock size={16} /> };
-  }
-};
+import { X, ArrowUpRight, Clock } from 'lucide-react';
+import { timeAgo, CATEGORY_STYLES, DEFAULT_CATEGORY_STYLE, BIAS_STYLES, DEFAULT_BIAS_STYLE } from './utils';
 
 const NewsModal = ({ item, onClose }) => {
   useEffect(() => {
@@ -24,7 +17,7 @@ const NewsModal = ({ item, onClose }) => {
 
   if (!item) return null;
 
-  const config = getSentimentConfig(item.sentiment);
+  const categoryStyle = CATEGORY_STYLES[item.category] || DEFAULT_CATEGORY_STYLE;
 
   return (
     <div
@@ -44,10 +37,17 @@ const NewsModal = ({ item, onClose }) => {
       >
         <div className="p-6 sm:p-8">
           <div className="flex justify-between items-start gap-4 mb-4">
-            <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.color}`}>
-              {config.icon}
-              {item.time || 'עודכן לאחרונה'}
-            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              {item.categoryLabel && (
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${categoryStyle.pill}`}>
+                  {item.categoryLabel}
+                </span>
+              )}
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-50 text-slate-500">
+                <Clock size={14} />
+                {timeAgo(item.publishedAt)}
+              </span>
+            </div>
             <button
               onClick={onClose}
               className="p-2 -m-2 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
@@ -72,24 +72,32 @@ const NewsModal = ({ item, onClose }) => {
 
           <div className="h-px w-full bg-slate-100 mb-4"></div>
 
+          <div className="mb-3 flex items-center gap-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            מקורות משני צדי המפה — לקריאה מלאה:
+          </div>
           <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-xs font-bold text-slate-400 ml-2 uppercase tracking-wider">לקריאה במקור:</span>
-            {item.links && item.links.map((link, idx) => (
-              <a
-                key={idx}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="
-                  flex items-center gap-1.5 px-3 py-1.5
-                  bg-slate-50 hover:bg-blue-50 hover:text-blue-600 border border-slate-200 hover:border-blue-200
-                  rounded-lg text-xs font-semibold text-slate-600 transition-all
-                "
-              >
-                {link.name}
-                <ArrowUpRight size={14} />
-              </a>
-            ))}
+            {item.links && item.links.map((link, idx) => {
+              const bias = BIAS_STYLES[link.bias] || DEFAULT_BIAS_STYLE;
+              return (
+                <a
+                  key={idx}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={bias.label}
+                  className="
+                    flex items-center gap-1.5 px-3 py-1.5
+                    bg-slate-50 hover:bg-blue-50 hover:text-blue-600 border border-slate-200 hover:border-blue-200
+                    rounded-lg text-xs font-semibold text-slate-600 transition-all
+                  "
+                >
+                  <span className={`w-2 h-2 rounded-full ${bias.dot}`}></span>
+                  {link.name}
+                  <ArrowUpRight size={14} />
+                </a>
+              );
+            })}
           </div>
         </div>
       </div>

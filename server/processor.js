@@ -46,16 +46,19 @@ async function processNewsWithAI() {
                 category: item.category,
                 title: item.title,
                 link: item.link,
-                snippet: item.contentSnippet ? item.contentSnippet.substring(0, 100) : '' 
+                pubDate: item.pubDate,
+                snippet: item.contentSnippet ? item.contentSnippet.substring(0, 100) : ''
             }));
             limitedInput.push(...topItems);
         }
 
         const prompt = `
         אתה עורך חדשות אובייקטיבי. קבל רשימת ידיעות מגוונת (ימין ושמאל).
-        המשימה: 
+        המשימה:
         1. מזג כפילויות. אם יש ידיעה פוליטית שמופיעה גם במקור ימין וגם בשמאל - אחד אותן לכותרת ניטרלית.
         2. כתוב 3 בוליטים לכל ידיעה.
+        3. לכל קישור מקור, החזר את אותו ערך bias שקיבלת עבורו בנתונים (אל תמציא).
+        4. עבור publishedAt, החזר את ערך ה-pubDate המדויק (ISO 8601 אם קיים) של המקור העדכני ביותר שמוזג לתוך אותה ידיעה. אל תמציא תאריך.
 
         החזר JSON בלבד (ללא Markdown):
         {
@@ -66,9 +69,9 @@ async function processNewsWithAI() {
                         {
                             "title": "כותרת",
                             "bullets": ["..."],
-                            "links": [{"name": "Now 14", "url": "..."}, {"name": "Ynet", "url": "..."}],
+                            "links": [{"name": "Now 14", "url": "...", "bias": "right"}, {"name": "Ynet", "url": "...", "bias": "left-center"}],
                             "sentiment": "neutral",
-                            "time": "זמן"
+                            "publishedAt": "2026-08-09T10:28:13+03:00"
                         }
                     ]
                 },

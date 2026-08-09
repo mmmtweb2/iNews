@@ -1,32 +1,35 @@
-import { ChevronDown, Clock, ShieldCheck, Zap } from 'lucide-react';
-
-const getSentimentConfig = (sentiment) => {
-  switch (sentiment) {
-    case 'positive': return { color: 'text-emerald-600', bg: 'bg-emerald-50', icon: <ShieldCheck size={16} /> };
-    case 'negative': return { color: 'text-rose-600', bg: 'bg-rose-50', icon: <Zap size={16} /> };
-    default: return { color: 'text-slate-500', bg: 'bg-slate-50', icon: <Clock size={16} /> };
-  }
-};
+import { ChevronDown } from 'lucide-react';
+import { timeAgo, isRecent, CATEGORY_STYLES, DEFAULT_CATEGORY_STYLE } from './utils';
 
 const NewsCard = ({ item, onSelect }) => {
-  const config = getSentimentConfig(item.sentiment);
+  const categoryStyle = CATEGORY_STYLES[item.category] || DEFAULT_CATEGORY_STYLE;
+  const fresh = isRecent(item.publishedAt);
 
   return (
     <div
       onClick={() => onSelect(item)}
       className="
-        group bg-white rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5
+        group relative bg-white rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5
         transition-all duration-300 border border-slate-100 overflow-hidden cursor-pointer h-full
       "
     >
+      <span className={`absolute top-0 right-0 bottom-0 w-1 ${categoryStyle.bar}`} />
+
       <div className="p-5 relative h-full flex flex-col">
         <div className="flex justify-between items-start gap-4">
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2 text-xs font-medium text-slate-400">
-              <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${config.bg} ${config.color}`}>
-                {config.icon}
-                {item.time || 'עודכן לאחרונה'}
-              </span>
+            <div className="flex items-center gap-2 mb-2 text-xs font-medium text-slate-400 flex-wrap">
+              {item.categoryLabel && (
+                <span className={`px-2 py-0.5 rounded-full font-bold ${categoryStyle.pill}`}>
+                  {item.categoryLabel}
+                </span>
+              )}
+              {fresh && (
+                <span className="px-2 py-0.5 rounded-full font-bold bg-rose-50 text-rose-600">
+                  חדש
+                </span>
+              )}
+              <span>{timeAgo(item.publishedAt)}</span>
               <span>•</span>
               <span>{item.links ? item.links.length : 1} מקורות</span>
             </div>
