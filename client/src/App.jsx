@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import NewsCard from './NewsCard';
+import NewsModal from './NewsModal';
 import { RefreshCw } from 'lucide-react';
 
 function App() {
@@ -7,6 +8,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('General');
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
+  const [selectedItem, setSelectedItem] = useState(null);
 
   const today = new Date().toLocaleDateString('he-IL', { 
     weekday: 'long', 
@@ -111,9 +113,8 @@ function App() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {getCurrentItems().length > 0 ? (
               getCurrentItems().map((item, index) => (
-                // הוספנו h-full כדי שכל הכרטיסים בשורה יהיו באותו גובה
                 <div key={index} className="h-full">
-                   <NewsCard item={item} />
+                   <NewsCard item={item} onSelect={setSelectedItem} />
                 </div>
               ))
             ) : (
@@ -126,6 +127,10 @@ function App() {
         )}
 
       </div>
+
+      {selectedItem && (
+        <NewsModal item={selectedItem} onClose={() => setSelectedItem(null)} />
+      )}
     </div>
   );
 }
