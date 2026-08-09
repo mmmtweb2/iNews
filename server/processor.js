@@ -47,6 +47,7 @@ async function processNewsWithAI() {
                 title: item.title,
                 link: item.link,
                 pubDate: item.pubDate,
+                image: item.image,
                 snippet: item.contentSnippet ? item.contentSnippet.substring(0, 100) : ''
             }));
             limitedInput.push(...topItems);
@@ -59,6 +60,7 @@ async function processNewsWithAI() {
         2. כתוב 3 בוליטים לכל ידיעה.
         3. לכל קישור מקור, החזר את אותו ערך bias שקיבלת עבורו בנתונים (אל תמציא).
         4. עבור publishedAt, החזר את ערך ה-pubDate המדויק (ISO 8601 אם קיים) של המקור העדכני ביותר שמוזג לתוך אותה ידיעה. אל תמציא תאריך.
+        5. עבור image, בחר את אחת מכתובות ה-image שקיבלת (בדיוק כפי שהיא, בלי לשנות) עבור אחד המקורות שמוזגו לתוך הידיעה. אם לאף אחד מהמקורות אין image, החזר null. אל תמציא כתובת שלא קיבלת.
 
         החזר JSON בלבד (ללא Markdown):
         {
@@ -71,7 +73,8 @@ async function processNewsWithAI() {
                             "bullets": ["..."],
                             "links": [{"name": "Now 14", "url": "...", "bias": "right"}, {"name": "Ynet", "url": "...", "bias": "left-center"}],
                             "sentiment": "neutral",
-                            "publishedAt": "2026-08-09T10:28:13+03:00"
+                            "publishedAt": "2026-08-09T10:28:13+03:00",
+                            "image": "https://... או null"
                         }
                     ]
                 },

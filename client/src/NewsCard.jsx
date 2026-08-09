@@ -1,7 +1,8 @@
 import { ChevronDown } from 'lucide-react';
 import { timeAgo, isRecent, CATEGORY_STYLES, DEFAULT_CATEGORY_STYLE } from './utils';
+import ImageBanner from './ImageBanner';
 
-const NewsCard = ({ item, onSelect }) => {
+const NewsCard = ({ item, onSelect, imagesEnabled }) => {
   const categoryStyle = CATEGORY_STYLES[item.category] || DEFAULT_CATEGORY_STYLE;
   const fresh = isRecent(item.publishedAt);
 
@@ -11,11 +12,14 @@ const NewsCard = ({ item, onSelect }) => {
       className="
         group relative bg-white rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5
         transition-all duration-300 border border-slate-100 overflow-hidden cursor-pointer h-full
+        flex flex-col
       "
     >
-      <span className={`absolute top-0 right-0 bottom-0 w-1 ${categoryStyle.bar}`} />
+      {imagesEnabled && <ImageBanner item={item} className="w-full h-36 shrink-0" />}
 
-      <div className="p-5 relative h-full flex flex-col">
+      <span className={`absolute top-0 right-0 h-full w-1 ${categoryStyle.bar}`} />
+
+      <div className="p-5 relative flex-1 flex flex-col">
         <div className="flex justify-between items-start gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2 text-xs font-medium text-slate-400 flex-wrap">

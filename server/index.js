@@ -35,8 +35,38 @@ app.get('/api/news', (req, res) => {
 
 // --- חלק ב': משיכת RSS (יוצר את raw.json) ---
 const parser = new Parser({
-    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124' }
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124' },
+    customFields: {
+        item: ['media:content', 'media:thumbnail', 'content:encoded']
+    }
 });
+
+// מנסה לחלץ כתובת תמונה מהידיעה, בכמה דרכים נפוצות בפידי RSS
+function extractImage(item) {
+    if (item.enclosure && item.enclosure.url && (!item.enclosure.type || item.enclosure.type.startsWith('image'))) {
+        return item.enclosure.url;
+    }
+
+    const mediaContent = item['media:content'];
+    if (mediaContent) {
+        const node = Array.isArray(mediaContent) ? mediaContent[0] : mediaContent;
+        const url = node?.$?.url;
+        if (url) return url;
+    }
+
+    const mediaThumb = item['media:thumbnail'];
+    if (mediaThumb) {
+        const node = Array.isArray(mediaThumb) ? mediaThumb[0] : mediaThumb;
+        const url = node?.$?.url;
+        if (url) return url;
+    }
+
+    const htmlContent = item['content:encoded'] || item.content || '';
+    const match = htmlContent.match(/<img[^>]+src="([^"]+)"/i);
+    if (match) return match[1];
+
+    return null;
+}
 
 const feedUrls = [
     { name: 'Ynet', url: 'https://www.ynet.co.il/Integration/StoryRss1854.xml', category: 'Politics', bias: 'left-center' },
@@ -64,6 +94,7 @@ async function fetchRSS() {
                 link: item.link,
                 contentSnippet: item.contentSnippet ? item.contentSnippet.trim() : '',
                 pubDate: item.pubDate,
+                image: extractImage(item),
                 id: item.guid || item.link
             }));
             allNews.push(...items);

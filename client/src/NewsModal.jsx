@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { X, ArrowUpRight, Clock } from 'lucide-react';
 import { timeAgo, CATEGORY_STYLES, DEFAULT_CATEGORY_STYLE, BIAS_STYLES, DEFAULT_BIAS_STYLE } from './utils';
+import ImageBanner from './ImageBanner';
 
-const NewsModal = ({ item, onClose }) => {
+const NewsModal = ({ item, onClose, imagesEnabled }) => {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') onClose();
@@ -30,11 +31,25 @@ const NewsModal = ({ item, onClose }) => {
       <div
         onClick={(e) => e.stopPropagation()}
         className="
-          w-full max-w-xl max-h-[85vh] overflow-y-auto
+          w-full max-w-xl max-h-[85vh] overflow-hidden flex flex-col
           bg-white rounded-2xl shadow-2xl border border-slate-100
           animate-[scaleIn_0.2s_ease-out]
         "
       >
+       <div className="overflow-y-auto">
+        {imagesEnabled && (
+          <div className="relative">
+            <ImageBanner item={item} className="w-full h-48" />
+            <button
+              onClick={onClose}
+              className="absolute top-4 left-4 p-2 rounded-full bg-white/90 hover:bg-white text-slate-600 shadow-sm transition-colors"
+              aria-label="סגור"
+            >
+              <X size={20} />
+            </button>
+          </div>
+        )}
+
         <div className="p-6 sm:p-8">
           <div className="flex justify-between items-start gap-4 mb-4">
             <div className="flex items-center gap-2 flex-wrap">
@@ -48,13 +63,15 @@ const NewsModal = ({ item, onClose }) => {
                 {timeAgo(item.publishedAt)}
               </span>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 -m-2 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
-              aria-label="סגור"
-            >
-              <X size={20} />
-            </button>
+            {!imagesEnabled && (
+              <button
+                onClick={onClose}
+                className="p-2 -m-2 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                aria-label="סגור"
+              >
+                <X size={20} />
+              </button>
+            )}
           </div>
 
           <h2 className="font-bold text-slate-900 text-2xl leading-snug mb-6">
@@ -100,6 +117,7 @@ const NewsModal = ({ item, onClose }) => {
             })}
           </div>
         </div>
+       </div>
       </div>
     </div>
   );

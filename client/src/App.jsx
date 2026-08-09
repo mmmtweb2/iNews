@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import NewsCard from './NewsCard';
 import NewsModal from './NewsModal';
 import NewsTicker from './NewsTicker';
-import { RefreshCw, ShieldCheck } from 'lucide-react';
+import { RefreshCw, ShieldCheck, Image, ImageOff } from 'lucide-react';
 
 function App() {
   const [categories, setCategories] = useState([]);
@@ -10,6 +10,14 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
+  const [imagesEnabled, setImagesEnabled] = useState(() => {
+    const saved = localStorage.getItem('briefly-images-enabled');
+    return saved === null ? true : saved === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('briefly-images-enabled', imagesEnabled);
+  }, [imagesEnabled]);
 
   const today = new Date().toLocaleDateString('he-IL', {
     weekday: 'long',
@@ -75,12 +83,25 @@ function App() {
                 </p>
               </div>
 
-              <button
-                onClick={fetchNews}
-                className="p-2 bg-white rounded-full shadow-sm text-slate-400 hover:text-blue-600 hover:rotate-180 transition-all duration-500"
-              >
-                <RefreshCw size={18} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setImagesEnabled(v => !v)}
+                  title={imagesEnabled ? 'עבור לתצוגה נקייה ללא תמונות' : 'עבור לתצוגה עם תמונות'}
+                  className={`
+                    flex items-center gap-1.5 px-3 py-2 rounded-full shadow-sm text-xs font-bold transition-colors
+                    ${imagesEnabled ? 'bg-white text-slate-500 hover:text-blue-600' : 'bg-slate-900 text-white'}
+                  `}
+                >
+                  {imagesEnabled ? <Image size={16} /> : <ImageOff size={16} />}
+                  <span className="hidden sm:inline">{imagesEnabled ? 'עם תמונות' : 'תצוגה נקייה'}</span>
+                </button>
+                <button
+                  onClick={fetchNews}
+                  className="p-2 bg-white rounded-full shadow-sm text-slate-400 hover:text-blue-600 hover:rotate-180 transition-all duration-500"
+                >
+                  <RefreshCw size={18} />
+                </button>
+              </div>
             </div>
 
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -135,7 +156,7 @@ function App() {
             {getCurrentItems().length > 0 ? (
               getCurrentItems().map((item, index) => (
                 <div key={index} className="h-full">
-                   <NewsCard item={item} onSelect={setSelectedItem} />
+                   <NewsCard item={item} onSelect={setSelectedItem} imagesEnabled={imagesEnabled} />
                 </div>
               ))
             ) : (
@@ -150,7 +171,7 @@ function App() {
       </div>
 
       {selectedItem && (
-        <NewsModal item={selectedItem} onClose={() => setSelectedItem(null)} />
+        <NewsModal item={selectedItem} onClose={() => setSelectedItem(null)} imagesEnabled={imagesEnabled} />
       )}
     </div>
   );
