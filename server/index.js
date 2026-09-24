@@ -103,7 +103,8 @@ const parser = new Parser({
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124' },
     customFields: {
         item: ['media:content', 'media:thumbnail', 'content:encoded']
-    }
+    },
+    timeout: 10000 // כדי שאתר אחד שלא מגיב לא יתקע את כל מחזור הרענון
 });
 
 // מנסה לחלץ כתובת תמונה מהידיעה, בכמה דרכים נפוצות בפידי RSS
@@ -168,28 +169,32 @@ const feedUrls = [
 ];
 
 async function fetchRSS() {
-    let allNews = [];
-    console.log("🔄 RSS: מתחיל משיכה...");
+    console.log("🔄 RSS: מתחיל משיכה מ-" + feedUrls.length + " מקורות (במקביל)...");
 
-    for (const source of feedUrls) {
-        try {
-            const feed = await parser.parseURL(source.url);
-            const items = feed.items.slice(0, 10).map(item => ({
-                source: source.name,
-                bias: source.bias,
-                category: source.category,
-                title: item.title,
-                link: item.link,
-                contentSnippet: item.contentSnippet ? item.contentSnippet.trim() : '',
-                pubDate: item.pubDate,
-                image: extractImage(item),
-                id: item.guid || item.link
-            }));
-            allNews.push(...items);
-        } catch (error) {
-            console.log(`⚠️ דילוג על ${source.name} (${source.category}): ${error.message}`);
+    const results = await Promise.allSettled(feedUrls.map(async source => {
+        const feed = await parser.parseURL(source.url);
+        return feed.items.slice(0, 10).map(item => ({
+            source: source.name,
+            bias: source.bias,
+            category: source.category,
+            title: item.title,
+            link: item.link,
+            contentSnippet: item.contentSnippet ? item.contentSnippet.trim() : '',
+            pubDate: item.pubDate,
+            image: extractImage(item),
+            id: item.guid || item.link
+        }));
+    }));
+
+    let allNews = [];
+    results.forEach((result, i) => {
+        const source = feedUrls[i];
+        if (result.status === 'fulfilled') {
+            allNews.push(...result.value);
+        } else {
+            console.log(`⚠️ דילוג על ${source.name} (${source.category}): ${result.reason?.message || result.reason}`);
         }
-    }
+    });
 
     // אם כל המקורות נכשלו, לא לדרוס נתונים טובים בקובץ ריק
     if (allNews.length === 0) {
