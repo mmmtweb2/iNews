@@ -113,10 +113,17 @@ async function processNewsWithAI() {
 
         const msg = await anthropic.messages.create({
             model: "claude-haiku-4-5-20251001",
-            max_tokens: 12000,
+            max_tokens: 20000,
             temperature: 0,
             messages: [{ role: "user", content: prompt }]
         });
+
+        if (msg.stop_reason === 'max_tokens') {
+            throw new Error(
+                `תגובת ה-AI נקטעה כי היא הגיעה למגבלת max_tokens (20000) - ` +
+                `צריך להגדיל אותה עוד, או לצמצם את כמות הנתונים שנשלחים`
+            );
+        }
 
         let textResponse = msg.content[0].text;
         textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '');
