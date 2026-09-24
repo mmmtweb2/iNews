@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import NewsCard from './NewsCard';
 import NewsModal from './NewsModal';
 import NewsTicker from './NewsTicker';
@@ -12,6 +12,9 @@ function App() {
   const [lastUpdated, setLastUpdated] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [onlineCount, setOnlineCount] = useState(null);
+  const [manualRefreshing, setManualRefreshing] = useState(false);
+  const [refreshNote, setRefreshNote] = useState('');
+  const pollRef = useRef(null);
   const [imagesEnabled, setImagesEnabled] = useState(() => {
     const saved = localStorage.getItem('briefly-images-enabled');
     return saved === null ? true : saved === 'true';
@@ -66,6 +69,11 @@ function App() {
         setCategories(data.categories);
         setLastUpdated(new Date().toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'}));
       }
+      if (data.refreshing === false && pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+        setManualRefreshing(false);
+      }
     } catch (error) {
       console.error("Error fetching news");
     } finally {
@@ -75,7 +83,44 @@ function App() {
 
   useEffect(() => {
     fetchNews();
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
+
+  useEffect(() => {
+    if (!refreshNote) return;
+    const t = setTimeout(() => setRefreshNote(''), 5000);
+    return () => clearTimeout(t);
+  }, [refreshNote]);
+
+  // רענון אמיתי: מפעיל מחדש את כל צנרת השליפה+AI בשרת (לא רק מציג את
+  // אותו final.json שוב), ואז בודק כל כמה שניות אם הריענון הסתיים
+  const triggerFullRefresh = async () => {
+    try {
+      const res = await fetch('/api/refresh', { method: 'POST' });
+      const data = await res.json();
+
+      if (res.status === 429) {
+        setRefreshNote(data.status === 'cooldown'
+          ? `אפשר לרענן שוב בעוד ${data.retryInSeconds} שניות`
+          : 'רענון כבר רץ ברקע...');
+        return;
+      }
+
+      setManualRefreshing(true);
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(fetchNews, 4000);
+      // רשת ביטחון - לא לדגור לנצח אם משהו נתקע
+      setTimeout(() => {
+        if (pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+          setManualRefreshing(false);
+        }
+      }, 90000);
+    } catch {
+      setRefreshNote('הרענון נכשל, נסה שוב');
+    }
+  };
 
   // מוסיפים לכל ידיעה את שם/תווית הקטגוריה שלה, כדי שנוכל לצבוע ולתייג אותה
   // גם בתצוגה "ראשי" שבה מציגים ידיעות מכמה קטגוריות יחד
@@ -128,10 +173,12 @@ function App() {
                   <span className="hidden sm:inline">{imagesEnabled ? 'עם תמונות' : 'תצוגה נקייה'}</span>
                 </button>
                 <button
-                  onClick={fetchNews}
-                  className="p-2 bg-white rounded-full shadow-sm text-slate-400 hover:text-blue-600 hover:rotate-180 transition-all duration-500"
+                  onClick={triggerFullRefresh}
+                  disabled={manualRefreshing}
+                  title="משוך חדשות חדשות עכשיו"
+                  className="p-2 bg-white rounded-full shadow-sm text-slate-400 hover:text-blue-600 transition-all duration-500 disabled:opacity-60"
                 >
-                  <RefreshCw size={18} />
+                  <RefreshCw size={18} className={manualRefreshing ? 'animate-spin' : ''} />
                 </button>
               </div>
             </div>
@@ -178,6 +225,17 @@ function App() {
               <span className="flex items-center gap-1.5 bg-white/60 px-3 py-1.5 rounded-full text-xs font-bold text-blue-600 border border-white shadow-sm">
                 <Users size={14} />
                 {onlineCount} קוראים עכשיו
+              </span>
+            )}
+            {manualRefreshing && (
+              <span className="flex items-center gap-1.5 bg-white/60 px-3 py-1.5 rounded-full text-xs font-bold text-slate-500 border border-white shadow-sm">
+                <RefreshCw size={14} className="animate-spin" />
+                מרענן חדשות...
+              </span>
+            )}
+            {refreshNote && (
+              <span className="flex items-center gap-1.5 bg-white/60 px-3 py-1.5 rounded-full text-xs font-bold text-slate-500 border border-white shadow-sm">
+                {refreshNote}
               </span>
             )}
           </div>

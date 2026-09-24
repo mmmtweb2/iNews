@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const Anthropic = require('@anthropic-ai/sdk');
+const { fetchOgImage } = require('./ogImage');
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -20,15 +21,6 @@ const CATEGORY_LABELS = {
     Culture: 'תרבות',
 };
 
-// פונקציית עזר לערבוב (כדי לא לקבל רק את המקור הראשון ברשימה)
-function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
-}
-
 // מזהה יציב לידיעה, כדי שריאקציות יוכלו להיצמד אליה. מבוסס על הכותרת,
 // כך שהוא נשאר קבוע כל עוד ה-AI לא מנסח את הכותרת אחרת במחזור הבא.
 function stableId(title) {
@@ -36,16 +28,12 @@ function stableId(title) {
 }
 
 async function processNewsWithAI() {
-    console.log("🧠 AI: מתחיל עיבוד (עם ערבוב מקורות לגיוון)...");
+    console.log("🧠 AI: מתחיל עיבוד...");
 
     try {
         if (!fs.existsSync(RAW_FILE)) throw new Error("חסר קובץ raw.json");
 
-        let newsItems = JSON.parse(fs.readFileSync(RAW_FILE, 'utf8'));
-
-        // --- התיקון הקריטי: ערבוב ---
-        // זה מבטיח שאם ניקח 6 ידיעות, הן יהיו תערובת של Ynet, ערוץ 14, וואלה וכו'
-        newsItems = shuffleArray(newsItems);
+        const newsItems = JSON.parse(fs.readFileSync(RAW_FILE, 'utf8'));
 
         // סינון לפי קטגוריות
         const categories = Object.fromEntries(Object.keys(CATEGORY_LABELS).map(name => [name, []]));
@@ -55,20 +43,43 @@ async function processNewsWithAI() {
         });
 
         let limitedInput = [];
-        const ITEMS_PER_CATEGORY = 6; 
+        const ITEMS_PER_SOURCE = 3;
 
         for (const [catName, items] of Object.entries(categories)) {
-            const topItems = items.slice(0, ITEMS_PER_CATEGORY).map(item => ({
-                source: item.source,
-                bias: item.bias,
-                category: item.category,
-                title: item.title,
-                link: item.link,
-                pubDate: item.pubDate,
-                image: item.image,
-                snippet: item.contentSnippet ? item.contentSnippet.substring(0, 100) : ''
-            }));
+            // --- התיקון הקריטי: לקיחה מכל מקור בנפרד ---
+            // לפני התיקון: ערבוב כל הקטגוריה יחד ולקיחת 6 אקראיים - עם כמה
+            // מקורות בקטגוריה זה כמעט תמיד "פספס" את אותו סיפור משני מקורות
+            // בו-זמנית, ולכן כמעט כלום לא התמזג. עכשיו כל מקור מיוצג בוודאות,
+            // כך שיש סיכוי אמיתי שאותו אירוע יגיע מכמה מקורות ויתמזג בפועל.
+            const bySource = {};
+            items.forEach(item => {
+                if (!bySource[item.source]) bySource[item.source] = [];
+                bySource[item.source].push(item);
+            });
+
+            const topItems = Object.values(bySource)
+                .flatMap(sourceItems => sourceItems.slice(0, ITEMS_PER_SOURCE))
+                .map(item => ({
+                    source: item.source,
+                    bias: item.bias,
+                    category: item.category,
+                    title: item.title,
+                    link: item.link,
+                    pubDate: item.pubDate,
+                    image: item.image,
+                    snippet: item.contentSnippet ? item.contentSnippet.substring(0, 100) : ''
+                }));
             limitedInput.push(...topItems);
+        }
+
+        // Fallback לתמונה: לכל פריט שאין לו תמונה מה-RSS, ננסה למשוך og:image
+        // מדף הכתבה עצמה. מקבילי, עם timeout לכל בקשה כדי לא לתקוע את התהליך.
+        const missingImage = limitedInput.filter(item => !item.image);
+        if (missingImage.length > 0) {
+            console.log(`🖼️  מנסה למשוך og:image עבור ${missingImage.length} ידיעות ללא תמונה מה-RSS...`);
+            await Promise.all(missingImage.map(async item => {
+                item.image = await fetchOgImage(item.link);
+            }));
         }
 
         const categoryList = Object.entries(CATEGORY_LABELS)
@@ -102,7 +113,7 @@ async function processNewsWithAI() {
 
         const msg = await anthropic.messages.create({
             model: "claude-haiku-4-5-20251001",
-            max_tokens: 8000,
+            max_tokens: 12000,
             temperature: 0,
             messages: [{ role: "user", content: prompt }]
         });

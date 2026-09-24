@@ -38,6 +38,7 @@ app.get('/api/news', (req, res) => {
             });
         });
 
+        data.refreshing = isRefreshing;
         res.json(data);
     } catch (error) {
         console.error("❌ שגיאה בהגשת הנתונים:", error);
@@ -69,6 +70,32 @@ app.post('/api/heartbeat', (req, res) => {
     }
 
     res.json({ online: activeVisitors.size });
+});
+
+// --- רענון ידני אמיתי (לא רק הצגת final.json הקיים) ---
+// מגן על עומס/עלות: לכל היותר פעם בדקה, ולא בו-זמנית עם ריצה קיימת
+let isRefreshing = false;
+let lastRefreshTriggeredAt = 0;
+const REFRESH_COOLDOWN_MS = 60 * 1000;
+
+app.post('/api/refresh', (req, res) => {
+    if (isRefreshing) {
+        return res.status(429).json({ status: 'already_running' });
+    }
+    const sinceLast = Date.now() - lastRefreshTriggeredAt;
+    if (sinceLast < REFRESH_COOLDOWN_MS) {
+        return res.status(429).json({
+            status: 'cooldown',
+            retryInSeconds: Math.ceil((REFRESH_COOLDOWN_MS - sinceLast) / 1000)
+        });
+    }
+
+    lastRefreshTriggeredAt = Date.now();
+    isRefreshing = true;
+    console.log('🔁 רענון ידני הופעל');
+    refreshNews().finally(() => { isRefreshing = false; });
+
+    res.json({ status: 'started' });
 });
 
 // --- חלק ב': משיכת RSS (יוצר את raw.json) ---
@@ -180,9 +207,22 @@ async function refreshNews() {
     await processNewsWithAI();
 }
 
+async function triggerRefresh() {
+    if (isRefreshing) {
+        console.log('⏭️  רענון כבר רץ, מדלג');
+        return;
+    }
+    isRefreshing = true;
+    try {
+        await refreshNews();
+    } finally {
+        isRefreshing = false;
+    }
+}
+
 // הרצה ראשונית כשהשרת עולה, ולאחר מכן כל 30 דקות
-refreshNews();
-cron.schedule('*/30 * * * *', refreshNews);
+triggerRefresh();
+cron.schedule('*/30 * * * *', triggerRefresh);
 
 app.listen(PORT, () => {
     console.log(`🚀 השרת רץ על פורט ${PORT}`);
