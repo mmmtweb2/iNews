@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { X, ArrowUpRight, Clock } from 'lucide-react';
-import { timeAgo, CATEGORY_STYLES, DEFAULT_CATEGORY_STYLE, BIAS_STYLES, DEFAULT_BIAS_STYLE } from './utils';
+import { timeAgo, isTrending, CATEGORY_STYLES, DEFAULT_CATEGORY_STYLE, BIAS_STYLES, DEFAULT_BIAS_STYLE } from './utils';
 import ImageBanner from './ImageBanner';
+import ReactionBar from './ReactionBar';
 
 const NewsModal = ({ item, onClose, imagesEnabled }) => {
   useEffect(() => {
@@ -19,6 +20,7 @@ const NewsModal = ({ item, onClose, imagesEnabled }) => {
   if (!item) return null;
 
   const categoryStyle = CATEGORY_STYLES[item.category] || DEFAULT_CATEGORY_STYLE;
+  const trending = isTrending(item);
 
   return (
     <div
@@ -32,7 +34,7 @@ const NewsModal = ({ item, onClose, imagesEnabled }) => {
         onClick={(e) => e.stopPropagation()}
         className="
           w-full max-w-xl max-h-[85vh] overflow-hidden flex flex-col
-          bg-white rounded-2xl shadow-2xl border border-slate-100
+          bg-white rounded-3xl shadow-2xl border border-slate-100
           animate-[scaleIn_0.2s_ease-out]
         "
       >
@@ -55,7 +57,12 @@ const NewsModal = ({ item, onClose, imagesEnabled }) => {
             <div className="flex items-center gap-2 flex-wrap">
               {item.categoryLabel && (
                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${categoryStyle.pill}`}>
-                  {item.categoryLabel}
+                  {categoryStyle.emoji} {item.categoryLabel}
+                </span>
+              )}
+              {trending && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-orange-50 text-orange-600">
+                  🔥 טרנדי
                 </span>
               )}
               <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-50 text-slate-500">
@@ -86,6 +93,10 @@ const NewsModal = ({ item, onClose, imagesEnabled }) => {
               </li>
             ))}
           </ul>
+
+          <div className="mb-6">
+            <ReactionBar item={item} />
+          </div>
 
           <div className="h-px w-full bg-slate-100 mb-4"></div>
 

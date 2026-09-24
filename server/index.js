@@ -6,6 +6,7 @@ const path = require('path');
 const cron = require('node-cron');
 const Parser = require('rss-parser');
 const { processNewsWithAI } = require('./processor');
+const reactions = require('./reactions');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,6 +17,7 @@ const FINAL_FILE = path.join(__dirname, 'final.json'); // פלט (לאתר)
 const PUBLIC_DIR = path.join(__dirname, 'public'); // build סטטי של הקליינט
 
 app.use(cors());
+app.use(express.json());
 app.use(express.static(PUBLIC_DIR));
 
 // --- חלק א': שרת ה-API ---
@@ -26,11 +28,47 @@ app.get('/api/news', (req, res) => {
              return res.json({ categories: [] });
         }
         const rawData = fs.readFileSync(FINAL_FILE, 'utf8');
-        res.json(JSON.parse(rawData));
+        const data = JSON.parse(rawData);
+        const allReactions = reactions.getAll();
+
+        // מוסיפים לכל ידיעה את ספירת הריאקציות האמיתית והמשותפת שלה
+        data.categories.forEach(cat => {
+            cat.items.forEach(item => {
+                item.reactions = allReactions[item.id] || {};
+            });
+        });
+
+        res.json(data);
     } catch (error) {
         console.error("❌ שגיאה בהגשת הנתונים:", error);
         res.status(500).json({ error: "Server Error" });
     }
+});
+
+// --- ריאקציות אמיתיות ומשותפות לכל המבקרים (לא רק בדפדפן שלך) ---
+app.post('/api/react', (req, res) => {
+    const { itemId, emoji } = req.body || {};
+    const updated = reactions.add(itemId, emoji);
+    if (!updated) {
+        return res.status(400).json({ error: 'itemId/emoji לא תקינים' });
+    }
+    res.json({ reactions: updated });
+});
+
+// --- מונה קוראים חי אמיתי: כל דפדפן פעיל שולח heartbeat כל 20 שניות ---
+const activeVisitors = new Map(); // clientId -> lastSeen (ms)
+const ONLINE_WINDOW_MS = 60 * 1000;
+
+app.post('/api/heartbeat', (req, res) => {
+    const { clientId } = req.body || {};
+    if (clientId) activeVisitors.set(clientId, Date.now());
+
+    const cutoff = Date.now() - ONLINE_WINDOW_MS;
+    for (const [id, lastSeen] of activeVisitors) {
+        if (lastSeen < cutoff) activeVisitors.delete(id);
+    }
+
+    res.json({ online: activeVisitors.size });
 });
 
 // --- חלק ב': משיכת RSS (יוצר את raw.json) ---
@@ -68,6 +106,17 @@ function extractImage(item) {
     return null;
 }
 
+// פידים גנריים של Google News (בעברית, ישראל) - תבנית URL יציבה וידועה,
+// משמשים להרחבת מגוון בלי להסתמך על ניחוש כתובות RSS ספציפיות לאתר
+function googleNewsFeed(query, category) {
+    return {
+        name: 'Google News',
+        url: `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=iw&gl=IL&ceid=IL:iw`,
+        category,
+        bias: 'aggregated'
+    };
+}
+
 const feedUrls = [
     { name: 'Ynet', url: 'https://www.ynet.co.il/Integration/StoryRss1854.xml', category: 'Politics', bias: 'left-center' },
     { name: 'Walla', url: 'https://rss.walla.co.il/feed/1?type=main', category: 'Politics', bias: 'center' },
@@ -76,7 +125,19 @@ const feedUrls = [
     { name: 'Globes', url: 'https://www.globes.co.il/webservice/rss/rssfeeder.xsd?folderid=2', category: 'Economy', bias: 'neutral' },
     { name: 'Bizportal', url: 'https://www.bizportal.co.il/webservice/rss/general', category: 'Economy', bias: 'neutral' },
     { name: 'Geektime', url: 'https://www.geektime.co.il/feed/', category: 'Technology', bias: 'neutral' },
-    { name: 'ONE', url: 'https://www.one.co.il/cat/coop/xml/rss/news_main.xml', category: 'Sports', bias: 'neutral' }
+    { name: 'ONE', url: 'https://www.one.co.il/cat/coop/xml/rss/news_main.xml', category: 'Sports', bias: 'neutral' },
+
+    // הרחבת מגוון בקטגוריות הקיימות
+    googleNewsFeed('פוליטיקה ישראל', 'Politics'),
+    googleNewsFeed('כלכלה ישראל', 'Economy'),
+    googleNewsFeed('טכנולוגיה', 'Technology'),
+    googleNewsFeed('ספורט ישראל', 'Sports'),
+
+    // קטגוריות חדשות
+    googleNewsFeed('חדשות עולם', 'World'),
+    googleNewsFeed('בידור סלבריטי', 'Entertainment'),
+    googleNewsFeed('בריאות רפואה', 'Health'),
+    googleNewsFeed('תרבות אמנות', 'Culture'),
 ];
 
 async function fetchRSS() {
@@ -99,7 +160,7 @@ async function fetchRSS() {
             }));
             allNews.push(...items);
         } catch (error) {
-            console.log(`⚠️ דילוג על ${source.name}`);
+            console.log(`⚠️ דילוג על ${source.name} (${source.category}): ${error.message}`);
         }
     }
 

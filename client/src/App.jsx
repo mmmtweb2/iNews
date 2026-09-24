@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import NewsCard from './NewsCard';
 import NewsModal from './NewsModal';
 import NewsTicker from './NewsTicker';
-import { RefreshCw, ShieldCheck, Image, ImageOff } from 'lucide-react';
+import { RefreshCw, ShieldCheck, Image, ImageOff, Users } from 'lucide-react';
+import { CATEGORY_STYLES } from './utils';
 
 function App() {
   const [categories, setCategories] = useState([]);
@@ -10,6 +11,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
+  const [onlineCount, setOnlineCount] = useState(null);
   const [imagesEnabled, setImagesEnabled] = useState(() => {
     const saved = localStorage.getItem('briefly-images-enabled');
     return saved === null ? true : saved === 'true';
@@ -18,6 +20,36 @@ function App() {
   useEffect(() => {
     localStorage.setItem('briefly-images-enabled', imagesEnabled);
   }, [imagesEnabled]);
+
+  // מונה קוראים חי אמיתי: כל דפדפן שולח heartbeat תקופתי, והשרת סופר
+  // כמה נראו ב-60 השניות האחרונות. מספר אמיתי - לא מומצא.
+  useEffect(() => {
+    let clientId;
+    try {
+      clientId = localStorage.getItem('briefly-client-id');
+      if (!clientId) {
+        clientId = Math.random().toString(36).slice(2);
+        localStorage.setItem('briefly-client-id', clientId);
+      }
+    } catch {
+      clientId = Math.random().toString(36).slice(2);
+    }
+
+    const beat = () => {
+      fetch('/api/heartbeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId }),
+      })
+        .then(res => res.json())
+        .then(data => setOnlineCount(data.online))
+        .catch(() => {});
+    };
+
+    beat();
+    const interval = setInterval(beat, 20000);
+    return () => clearInterval(interval);
+  }, []);
 
   const today = new Date().toLocaleDateString('he-IL', {
     weekday: 'long',
@@ -116,7 +148,7 @@ function App() {
                       : 'bg-white text-slate-500 border-transparent hover:bg-slate-200'}
                   `}
                 >
-                  {tab.label}
+                  {tab.name === 'General' ? '👋' : CATEGORY_STYLES[tab.name]?.emoji} {tab.label}
                 </button>
               ))}
             </div>
@@ -142,6 +174,12 @@ function App() {
               <ShieldCheck size={14} />
               מאוזן ושקוף — כל הצדדים
             </span>
+            {onlineCount !== null && (
+              <span className="flex items-center gap-1.5 bg-white/60 px-3 py-1.5 rounded-full text-xs font-bold text-blue-600 border border-white shadow-sm">
+                <Users size={14} />
+                {onlineCount} קוראים עכשיו
+              </span>
+            )}
           </div>
         )}
 
