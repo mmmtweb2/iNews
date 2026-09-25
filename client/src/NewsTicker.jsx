@@ -7,7 +7,7 @@ const NewsTicker = ({ items, onSelect }) => {
         <button
           key={idx}
           onClick={() => onSelect(item)}
-          className="flex items-center gap-2 text-sm font-medium text-slate-200 hover:text-white whitespace-nowrap transition-colors"
+          className="flex items-center gap-2 text-sm font-medium text-stone-300 hover:text-white whitespace-nowrap transition-colors"
         >
           <span className="text-rose-500 text-xs">●</span>
           {item.title}
@@ -17,7 +17,7 @@ const NewsTicker = ({ items, onSelect }) => {
   );
 
   return (
-    <div className="bg-slate-900 overflow-hidden select-none">
+    <div className="bg-stone-900 overflow-hidden select-none">
       <div className="flex items-center gap-4 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <span className="flex items-center gap-1.5 py-2 pl-4 shrink-0 text-xs font-black text-white bg-rose-600 -mr-4 px-3">
           <span className="relative flex h-2 w-2">

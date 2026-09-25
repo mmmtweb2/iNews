@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const Anthropic = require('@anthropic-ai/sdk');
-const { fetchOgImage } = require('./ogImage');
+const { fetchArticleMeta } = require('./articleMeta');
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -67,33 +67,41 @@ async function processNewsWithAI() {
                     link: item.link,
                     pubDate: item.pubDate,
                     image: item.image,
-                    snippet: item.contentSnippet ? item.contentSnippet.substring(0, 100) : ''
+                    snippet: item.contentSnippet ? item.contentSnippet.substring(0, 300) : ''
                 }));
             limitedInput.push(...topItems);
         }
 
-        // Fallback לתמונה: לכל פריט שאין לו תמונה מה-RSS, ננסה למשוך og:image
-        // מדף הכתבה עצמה. מקבילי, עם timeout לכל בקשה כדי לא לתקוע את התהליך.
-        const missingImage = limitedInput.filter(item => !item.image);
-        if (missingImage.length > 0) {
-            console.log(`🖼️  מנסה למשוך og:image עבור ${missingImage.length} ידיעות ללא תמונה מה-RSS...`);
-            await Promise.all(missingImage.map(async item => {
-                item.image = await fetchOgImage(item.link);
-            }));
-        }
+        // --- התיקון הקריטי לתוכן: לקרוא את דף הכתבה עצמו ---
+        // עד כה ה-AI קיבל רק כותרת + 100 תווים מה-RSS, שזה כמעט כלום -
+        // אין פלא שהבוליטים רק ניסחו מחדש את הכותרת. עכשיו קוראים את
+        // דף הכתבה של כל פריט (מקבילי, עם timeout) ומחלצים גם תמונה
+        // וגם קטע טקסט אמיתי מהכתבה עצמה, כדי שיהיה ל-AI על מה לעבוד.
+        console.log(`📄 קורא ${limitedInput.length} דפי כתבה לתוכן ותמונות...`);
+        await Promise.all(limitedInput.map(async item => {
+            const meta = await fetchArticleMeta(item.link);
+            if (!item.image && meta.image) item.image = meta.image;
+            if (meta.excerpt) item.snippet = meta.excerpt;
+        }));
 
         const categoryList = Object.entries(CATEGORY_LABELS)
             .map(([name, label]) => `${name} (label: "${label}")`)
             .join(', ');
 
         const prompt = `
-        אתה עורך חדשות אובייקטיבי. קבל רשימת ידיעות מגוונת ממקורות שונים (כולל ימין ושמאל בפוליטיקה).
+        אתה עורך חדשות אובייקטיבי וקפדני. קבל רשימת ידיעות מגוונת ממקורות שונים (כולל ימין ושמאל בפוליטיקה),
+        עם קטע תוכן אמיתי מכל כתבה (snippet).
         המשימה:
-        1. מזג כפילויות. אם אותה ידיעה מופיעה במספר מקורות - אחד אותה לכותרת ניטרלית אחת.
-        2. כתוב 3 בוליטים לכל ידיעה.
-        3. לכל קישור מקור, החזר את אותו ערך bias שקיבלת עבורו בנתונים (אל תמציא).
-        4. עבור publishedAt, החזר את ערך ה-pubDate המדויק (ISO 8601 אם קיים) של המקור העדכני ביותר שמוזג לתוך אותה ידיעה. אל תמציא תאריך.
-        5. עבור image, בחר את אחת מכתובות ה-image שקיבלת (בדיוק כפי שהיא, בלי לשנות) עבור אחד המקורות שמוזגו לתוך הידיעה. אם לאף אחד מהמקורות אין image, החזר null. אל תמציא כתובת שלא קיבלת.
+        1. מזג כפילויות. אם אותה ידיעה מופיעה במספר מקורות - אחד אותה לכותרת ניטרלית אחת, והשתמש בתוכן משני המקורות יחד.
+        2. כתוב 3 בוליטים לכל ידיעה, המבוססים על ה-snippet בפועל - לא ניסוח מחדש של הכותרת.
+           כל בוליט חייב להוסיף פרט קונקרטי שלא מופיע בכותרת עצמה: מספר, שם, ציטוט, נסיבות, או השלכה.
+           אם ה-snippet לא מכיל מספיק מידע לבוליט קונקרטי, כתוב פחות בוליטים ולא בוליט "מרפד" ריק מתוכן.
+        3. איזון גם כשיש מקור בודד: גם אם ידיעה מסתמכת על מקור אחד בלבד, נסח בשפה עובדתית וניטרלית -
+           הסר שפה טעונה/מוטה/רגשית, הפרד באופן ברור בין עובדות לבין דעות או הערכות, וייחס טענות שנויות
+           במחלוקת למקור במפורש (למשל: "לפי [שם המקור], ...") במקום להציג אותן כעובדה מוסכמת.
+        4. לכל קישור מקור, החזר את אותו ערך bias שקיבלת עבורו בנתונים (אל תמציא).
+        5. עבור publishedAt, החזר את ערך ה-pubDate המדויק (ISO 8601 אם קיים) של המקור העדכני ביותר שמוזג לתוך אותה ידיעה. אל תמציא תאריך.
+        6. עבור image, בחר את אחת מכתובות ה-image שקיבלת (בדיוק כפי שהיא, בלי לשנות) עבור אחד המקורות שמוזגו לתוך הידיעה. אם לאף אחד מהמקורות אין image, החזר null. אל תמציא כתובת שלא קיבלת.
 
         החזר JSON בלבד (ללא Markdown), עם בדיוק שמונה הקטגוריות הבאות תחת "categories" (כל אחת עם name ו-label כפי שמופיע כאן, גם אם items ריק): ${categoryList}.
 

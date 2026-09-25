@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Landmark, TrendingUp, Cpu, Trophy, Newspaper } from 'lucide-react';
+import { Landmark, TrendingUp, Cpu, Trophy, Globe, Clapperboard, HeartPulse, Palette, Newspaper } from 'lucide-react';
 import { CATEGORY_STYLES, DEFAULT_CATEGORY_STYLE } from './utils';
 
 const CATEGORY_ICONS = {
@@ -7,6 +7,10 @@ const CATEGORY_ICONS = {
   Economy: TrendingUp,
   Technology: Cpu,
   Sports: Trophy,
+  World: Globe,
+  Entertainment: Clapperboard,
+  Health: HeartPulse,
+  Culture: Palette,
 };
 
 // תמונת הידיעה אם יש, ואם אין (או שהיא נכשלה בטעינה) - באנר גרדיאנט

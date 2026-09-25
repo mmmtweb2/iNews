@@ -27,18 +27,24 @@ export function isTrending(item) {
   return !!item.links && item.links.length >= 3;
 }
 
+// שקיפות: ידיעה שמבוססת על מקור אחד בלבד לא עברה איזון אמיתי בין נקודות מבט -
+// עדיף לומר את זה בגלוי מאשר להעמיד פנים שהיא "מאוזנת" כמו כל השאר
+export function isSingleSource(item) {
+  return !item.links || item.links.length <= 1;
+}
+
 export const CATEGORY_STYLES = {
-  Politics: { bar: 'bg-indigo-500', pill: 'bg-indigo-50 text-indigo-600', emoji: '🏛️' },
-  Economy: { bar: 'bg-emerald-500', pill: 'bg-emerald-50 text-emerald-600', emoji: '💰' },
-  Technology: { bar: 'bg-violet-500', pill: 'bg-violet-50 text-violet-600', emoji: '💻' },
-  Sports: { bar: 'bg-orange-500', pill: 'bg-orange-50 text-orange-600', emoji: '⚽' },
-  World: { bar: 'bg-sky-500', pill: 'bg-sky-50 text-sky-600', emoji: '🌍' },
-  Entertainment: { bar: 'bg-pink-500', pill: 'bg-pink-50 text-pink-600', emoji: '🎬' },
-  Health: { bar: 'bg-teal-500', pill: 'bg-teal-50 text-teal-600', emoji: '🏥' },
-  Culture: { bar: 'bg-amber-500', pill: 'bg-amber-50 text-amber-600', emoji: '🎨' },
+  Politics: { bar: 'bg-indigo-600', text: 'text-indigo-700', pill: 'bg-indigo-50 text-indigo-600', emoji: '🏛️' },
+  Economy: { bar: 'bg-emerald-600', text: 'text-emerald-700', pill: 'bg-emerald-50 text-emerald-600', emoji: '💰' },
+  Technology: { bar: 'bg-violet-600', text: 'text-violet-700', pill: 'bg-violet-50 text-violet-600', emoji: '💻' },
+  Sports: { bar: 'bg-orange-600', text: 'text-orange-700', pill: 'bg-orange-50 text-orange-600', emoji: '⚽' },
+  World: { bar: 'bg-sky-600', text: 'text-sky-700', pill: 'bg-sky-50 text-sky-600', emoji: '🌍' },
+  Entertainment: { bar: 'bg-pink-600', text: 'text-pink-700', pill: 'bg-pink-50 text-pink-600', emoji: '🎬' },
+  Health: { bar: 'bg-teal-600', text: 'text-teal-700', pill: 'bg-teal-50 text-teal-600', emoji: '🏥' },
+  Culture: { bar: 'bg-amber-600', text: 'text-amber-700', pill: 'bg-amber-50 text-amber-600', emoji: '🎨' },
 };
 
-export const DEFAULT_CATEGORY_STYLE = { bar: 'bg-slate-400', pill: 'bg-slate-50 text-slate-600', emoji: '📰' };
+export const DEFAULT_CATEGORY_STYLE = { bar: 'bg-stone-500', text: 'text-stone-700', pill: 'bg-stone-50 text-stone-600', emoji: '📰' };
 
 export const BIAS_STYLES = {
   'left-center': { dot: 'bg-blue-500', label: 'שמאל-מרכז' },
