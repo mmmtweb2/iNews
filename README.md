@@ -49,6 +49,12 @@ npm --prefix client run dev              # ממשק על :5173 עם proxy ל-/ap
 npm run demo
 ```
 
+## הרצה ב-GitHub Codespaces
+
+1. בגיטהאב: Code, Codespaces, Create codespace on `feat/calm-ai-news`.
+2. מצב הדגמה (ללא מפתח, ידיעות בדויות): `npm run demo`. הפורט 3000 ייפתח כתצוגה מקדימה.
+3. מצב חי: ב-GitHub, Settings, Secrets and variables, Codespaces, הוסף secret בשם `ANTHROPIC_API_KEY` (לפני יצירת ה-Codespace, או הפעל אותו מחדש). אחר כך `npm run live`. הריצה הראשונה אורכת כמה דקות, כי היא שואבת ומעבדת את כל הידיעות. אחרי זה בדוק את `/api/status` לראות אילו מקורות נכשלו.
+
 ## משתני סביבה
 
 | משתנה | ברירת מחדל | תיאור |

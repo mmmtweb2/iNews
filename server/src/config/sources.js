@@ -51,8 +51,8 @@ const SOURCES = [
     { id: 'haaretz', name: 'הארץ', url: 'https://www.haaretz.co.il/cmlink/1.1470869', lang: 'he', lean: 'left', owner: 'haaretz-group', verified: false },
     { id: 'maariv', name: 'מעריב', url: 'https://www.maariv.co.il/Rss/RssFeedsMivzakiChadashot', lang: 'he', lean: 'center-right', verified: false },
     { id: 'israelhayom', name: 'ישראל היום', url: 'https://www.israelhayom.co.il/rss.xml', lang: 'he', lean: 'right', verified: false },
-    { id: 'mako', name: 'N12', url: 'https://rcs.mako.co.il/rss/31750a2610f26110VgnVCM1000005201000aRCRD.xml', lang: 'he', lean: 'center', verified: false },
-    { id: 'kan', name: 'כאן חדשות', url: 'https://www.kan.org.il/rss/', lang: 'he', lean: 'center', verified: false },
+    { id: 'mako', name: 'N12', url: 'https://rcs.mako.co.il/rss/31750a2610f26110VgnVCM1000005201000aRCRD.xml', lang: 'he', lean: 'left', verified: false },
+    { id: 'kan', name: 'כאן חדשות', url: 'https://www.kan.org.il/rss/', lang: 'he', lean: 'left', verified: false },
     { id: 'toi', name: 'The Times of Israel', url: 'https://www.timesofisrael.com/feed/', lang: 'en', lean: 'center', verified: false },
     { id: 'jpost', name: 'The Jerusalem Post', url: 'https://www.jpost.com/Rss/RssFeedsHeadlines.aspx', lang: 'en', lean: 'center-right', verified: false },
 

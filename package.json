@@ -5,6 +5,7 @@
     "install:all": "npm --prefix server install && npm --prefix client install",
     "build": "npm --prefix client run build",
     "test": "npm --prefix server test && npm --prefix client test",
-    "demo": "npm --prefix client run build && rm -rf server/public && cp -r client/dist server/public && npm --prefix server run demo"
+    "demo": "npm --prefix client run build && rm -rf server/public && cp -r client/dist server/public && npm --prefix server run demo",
+    "live": "npm --prefix client run build && rm -rf server/public && cp -r client/dist server/public && npm --prefix server start"
   }
 }

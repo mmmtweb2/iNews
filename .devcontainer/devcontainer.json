@@ -1,0 +1,14 @@
+{
+  "name": "iNews",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+  "postCreateCommand": "npm run install:all",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": { "label": "iNews", "onAutoForward": "openPreview" }
+  },
+  "secrets": {
+    "ANTHROPIC_API_KEY": {
+      "description": "Anthropic API key. Needed only for `npm run live`; `npm run demo` works without it."
+    }
+  }
+}
