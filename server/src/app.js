@@ -63,7 +63,7 @@ function rateLimiter({ windowMs, max }) {
 
 // What the reader's transparency page may show about our sources.
 function publicSources() {
-    const publishers = SOURCES.filter(source => source.kind === 'publisher').map(({ id, name, lang, lean }) => ({ id, name, lang, lean, kind: 'publisher' }));
+    const publishers = SOURCES.filter(source => source.kind === 'publisher').map(({ id, name, lang, lean, audience }) => ({ id, name, lang, lean, audience: audience || null, kind: 'publisher' }));
     return [...publishers, { id: 'aggregator', name: 'Google News', lang: 'he', lean: null, kind: 'aggregator' }];
 }
 

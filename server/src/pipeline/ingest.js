@@ -58,6 +58,8 @@ function normalizeItem(source, raw, now) {
         sourceId: aggregated ? `${source.id}:${sha1(sourceName, 6)}` : source.id,
         sourceName,
         lean: aggregated ? null : source.lean || null,
+        kind: source.kind || 'publisher',
+        owner: aggregated ? null : source.owner || source.id,
         lang: source.lang,
         aggregated,
     };

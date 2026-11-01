@@ -28,6 +28,8 @@ test('normalizes items, applies the age window, sorts newest first and caps per 
     assert.equal(items[1].url, 'https://a.com/2');
     assert.equal(items[0].lean, 'left');
     assert.equal(items[0].sourceId, 'a');
+    assert.equal(items[0].owner, 'a');
+    assert.equal(items[0].kind, 'publisher');
     assert.deepEqual(health.map(h => [h.id, h.ok, h.count]), [['a', true, 2], ['b', true, 0], ['gn', true, 0]]);
 });
 

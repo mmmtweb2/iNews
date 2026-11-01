@@ -1,5 +1,5 @@
 import { Eye } from 'lucide-react'
-import { blindspotText } from '../lib/copy.js'
+import { blindspotText, reachLabel } from '../lib/copy.js'
 
 const LEAN_ORDER = ['left', 'center-left', 'center', 'center-right', 'right']
 
@@ -29,6 +29,7 @@ export default function Coverage({ story, leanLabels }) {
   const outlets = story.sources.filter(source => (seen.has(source.id) ? false : seen.add(source.id)))
   const shown = outlets.slice(0, 4)
   const extra = outlets.length - shown.length
+  const reach = reachLabel(story.coverage?.confidence, outlets.length)
 
   return (
     <div className="mt-5">
@@ -45,7 +46,7 @@ export default function Coverage({ story, leanLabels }) {
           ))}
           {extra > 0 && <li>ועוד {extra}</li>}
         </ul>
-        {outlets.length === 1 && <span>דווח במקור אחד בלבד</span>}
+        <span className={reach.single ? 'font-medium text-ink' : ''}>{reach.text}</span>
       </div>
       {story.coverage?.blindspot && (
         <p className="mt-2 flex items-center gap-1.5 text-[0.8125rem] text-soft" title="ההשוואה היא מול המקורות שאנחנו עוקבים אחריהם. ייתכן שהסיקור עוד יגיע.">

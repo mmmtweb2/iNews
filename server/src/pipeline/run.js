@@ -32,7 +32,7 @@ function readTimes(story) {
 
 function composeStory({ id, cluster, enrichment, previous, now, model }) {
     const sources = cluster
-        .map(item => ({ key: item.key, id: item.sourceId, name: item.sourceName, lean: item.lean, url: item.url, title: item.title, publishedAt: item.publishedAt }))
+        .map(item => ({ key: item.key, id: item.sourceId, name: item.sourceName, lean: item.lean, kind: item.kind, owner: item.owner, url: item.url, title: item.title, publishedAt: item.publishedAt }))
         .sort(byPublishedDesc);
     const image = [...cluster]
         .sort(byPublishedDesc)

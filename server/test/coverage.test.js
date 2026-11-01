@@ -31,3 +31,42 @@ test('the same outlet is counted once', () => {
     assert.equal(coverage.counts.right, 1);
     assert.equal(coverage.counts.unrated, 1);
 });
+
+const { computeConfidence } = require('../src/pipeline/coverage');
+
+test('outlets under one owner count as one organisation', () => {
+    const sources = [
+        { id: 'ynet', name: 'ynet', owner: 'yedioth' },
+        { id: 'calcalist', name: 'כלכליסט', owner: 'yedioth' },
+    ];
+    assert.deepEqual(computeConfidence(sources), { level: 'single', owners: 1, official: false });
+});
+
+test('two different organisations make a multi-source story', () => {
+    const sources = [
+        { id: 'ynet', name: 'ynet', owner: 'yedioth' },
+        { id: 'walla', name: 'וואלה', owner: 'walla' },
+        { id: 'maariv', name: 'מעריב' },
+    ];
+    assert.deepEqual(computeConfidence(sources), { level: 'multi', owners: 3, official: false });
+});
+
+test('a publisher seen through an aggregator is not counted twice', () => {
+    const sources = [
+        { id: 'ynet', name: 'ynet', owner: 'yedioth', kind: 'publisher' },
+        { id: 'gn:abc', name: 'ynet', kind: 'aggregator' },
+    ];
+    assert.equal(computeConfidence(sources).owners, 1);
+    const other = [...sources, { id: 'gn:def', name: 'Reuters', kind: 'aggregator' }];
+    assert.equal(computeConfidence(other).level, 'multi');
+});
+
+test('an official source is flagged', () => {
+    const sources = [{ id: 'idf', name: 'דובר צה"ל', kind: 'official' }];
+    assert.equal(computeConfidence(sources).official, true);
+    assert.equal(computeConfidence(sources).level, 'single');
+});
+
+test('computeCoverage includes confidence', () => {
+    assert.equal(computeCoverage([src('a', 'right'), src('b', 'left')], ['politics']).confidence.level, 'multi');
+});

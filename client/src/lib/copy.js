@@ -19,3 +19,12 @@ export function blindspotText(side) {
     ? 'לא נמצא כיסוי של מקורות מהימין בין המקורות שנסרקו'
     : 'לא נמצא כיסוי של מקורות מהשמאל בין המקורות שנסרקו'
 }
+
+// "Reported by" describes breadth, not truth: outlets copy each other, so we never say "verified".
+export function reachLabel(confidence, fallbackCount) {
+  const owners = confidence ? confidence.owners : fallbackCount
+  const official = confidence?.official ? ' כולל מקור רשמי.' : ''
+  if (owners <= 1) return { single: true, text: `דווח בגוף תקשורת אחד בלבד.${official}` }
+  return { single: false, text: `דווח ב-${owners} גופי תקשורת.${official}` }
+}
+

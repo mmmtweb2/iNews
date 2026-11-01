@@ -65,3 +65,12 @@ test('prefs round-trip through storage, and bad storage never throws', () => {
   assert.deepEqual(loadPrefs(broken), DEFAULT_PREFS);
   assert.doesNotThrow(() => savePrefs(DEFAULT_PREFS, broken));
 });
+
+import { reachLabel } from './copy.js'
+
+test('reachLabel describes breadth of reporting without claiming verification', () => {
+  assert.deepEqual(reachLabel({ owners: 1, official: false }, 1), { single: true, text: 'דווח בגוף תקשורת אחד בלבד.' })
+  assert.equal(reachLabel({ owners: 3, official: false }, 3).text, 'דווח ב-3 גופי תקשורת.')
+  assert.equal(reachLabel({ owners: 2, official: true }, 2).text, 'דווח ב-2 גופי תקשורת. כולל מקור רשמי.')
+  assert.equal(reachLabel(undefined, 1).single, true)
+})
