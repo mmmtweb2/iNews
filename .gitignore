@@ -2,7 +2,7 @@ node_modules
 dist
 dist-ssr
 server/public
-server/reactions.json
+server/data
 *.local
 .env
 .env.*

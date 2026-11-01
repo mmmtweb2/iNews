@@ -1,21 +1,24 @@
 {
-  "name": "inews",
-  "version": "1.0.0",
+  "name": "inews-server",
+  "version": "2.0.0",
+  "private": true,
+  "description": "iNews API and AI news pipeline",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js",
+    "demo": "DEMO_MODE=1 node index.js",
+    "refresh": "node scripts/refresh-once.js",
+    "test": "node --test \"test/*.test.js\""
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
     "cors": "^2.8.6",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "node-cron": "^3.0.3",
-    "openai": "^6.16.0",
     "rss-parser": "^3.13.0"
-  },
-  "description": ""
+  }
 }
