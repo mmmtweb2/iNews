@@ -1,7 +1,7 @@
 import Dialog from './Dialog.jsx'
-import { HeatControl, TimeControl } from './Controls.jsx'
+import { TimeControl } from './Controls.jsx'
+import { PresetChips } from './DialsPanel.jsx'
 import { TopicChips } from './Topics.jsx'
-import { HEAT_NOTES } from '../lib/copy.js'
 
 // First visit only. Three choices, all of which can be changed at any time.
 export default function Onboarding({ open, onDone, topics, prefs, update }) {
@@ -18,7 +18,7 @@ export default function Onboarding({ open, onDone, topics, prefs, update }) {
         </div>
       }
     >
-      <p className="text-[0.9375rem] leading-[1.7] text-soft">שלוש בחירות, ואפשר לשנות אותן בכל רגע. הן נשמרות רק בדפדפן הזה.</p>
+      <p className="text-[0.9375rem] leading-[1.7] text-soft">שלוש בחירות, ואפשר לשנות אותן בכל רגע. בהגדרות יש גם חמישה מחוונים לכוונון מדויק של הסגנון. הכול נשמר רק בדפדפן הזה.</p>
 
       <div className="mt-5">
         <p className="mb-2 text-sm font-semibold">כמה זמן יש לך?</p>
@@ -26,9 +26,8 @@ export default function Onboarding({ open, onDone, topics, prefs, update }) {
       </div>
 
       <div className="mt-5">
-        <p className="mb-2 text-sm font-semibold">כמה ריגוש אתה רוצה?</p>
-        <HeatControl value={prefs.heat} onChange={heat => update({ heat })} />
-        <p className="mt-2 text-[0.8125rem] leading-snug text-soft">{HEAT_NOTES[prefs.heat]}</p>
+        <p className="mb-2 text-sm font-semibold">איזה סגנון מתאים לך?</p>
+        <PresetChips dials={prefs.dials} onPick={dials => update({ dials })} />
       </div>
 
       <div className="mt-5">

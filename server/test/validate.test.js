@@ -93,3 +93,27 @@ test('non-object input is rejected', () => {
     assert.equal(sanitizeEnrichment(null, { members, corpus }), null);
     assert.equal(sanitizeEnrichment('x', { members, corpus }), null);
 });
+
+test('known / claimed / unknown are grounded, capped, and "known" needs two articles', () => {
+    const result = clean({
+        known: ['נעצרו 14 חשודים', 'נעצרו 999 חשודים', 'נעצרו 14 חשודים'],
+        claimed: ['לפי הצבא, נתפסו כלי נשק', 'לפי הארגון נפצעו 4,000', 'א', 'ב', 'ג'],
+        unknown: ['לא ידוע מי עמד מאחורי הפעולה', 7, ''],
+    });
+    assert.deepEqual(result.known, ['נעצרו 14 חשודים']);
+    assert.ok(result.claimed.includes('לפי הצבא, נתפסו כלי נשק'));
+    assert.ok(!result.claimed.some(text => text.includes('4,000')));
+    assert.ok(result.claimed.length <= 3);
+    assert.deepEqual(result.unknown, ['לא ידוע מי עמד מאחורי הפעולה']);
+
+    const single = sanitizeEnrichment({ ...base, known: ['נעצרו 14 חשודים'], claimed: ['לפי הצבא, נעצרו 14 חשודים'] }, { members: [members[0]], corpus });
+    assert.deepEqual(single.known, []);
+    assert.equal(single.claimed.length, 1);
+});
+
+test('missing lists default to empty, and an ungrounded whatsNew is dropped', () => {
+    const plain = clean({});
+    assert.deepEqual([plain.known, plain.claimed, plain.unknown, plain.whatsNew], [[], [], [], '']);
+    assert.equal(clean({ whatsNew: 'נעצרו עוד 14 חשודים' }).whatsNew, 'נעצרו עוד 14 חשודים');
+    assert.equal(clean({ whatsNew: 'מספר העצורים עלה ל-480' }).whatsNew, '');
+});

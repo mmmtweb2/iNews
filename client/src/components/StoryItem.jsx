@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Bookmark, BookmarkCheck, ChevronDown, EyeOff, Info } from 'lucide-react'
 import HeatGlyph from './HeatGlyph.jsx'
 import Coverage from './Coverage.jsx'
+import { KnowledgeBlock, Timeline } from './Knowledge.jsx'
 import { formatClock, timeAgo } from '../lib/format.js'
 
 const HEADLINE_SIZE = {
@@ -17,14 +18,16 @@ function LeadImage({ src }) {
 }
 
 // One story. `entry.depth` decides how much is open by default; the reader can always open more.
-export default function StoryItem({ entry, variant = 'standard', showClock = true, active = false, now, topicLabels, leanLabels, showImages, onHide, followedIds = null, onFollow, note = null, badge = null }) {
+export default function StoryItem({ entry, variant = 'standard', showClock = true, active = false, now, topicLabels, leanLabels, showImages, onHide, followedIds = null, onFollow, note = null, badge = null, expandTimeline = false }) {
   const { story, tone, depth, startSec } = entry
   const calm = tone === 'calm'
   const followed = Boolean(followedIds && followedIds.has(story.id))
   const [open, setOpen] = useState(depth === 'full')
 
   const showLead = !calm && (depth !== 'headline' || open)
-  const hasMore = !calm && (depth === 'headline' || story.bullets.length > 0 || Boolean(story.whyItMatters) || story.framing.length > 0)
+  const hasKnowledge = [story.known, story.claimed, story.unknown].some(list => list && list.length > 0)
+  const hasMore = !calm && (depth === 'headline' || story.bullets.length > 0 || Boolean(story.whyItMatters) || story.framing.length > 0 || hasKnowledge)
+  const changeBadge = entry.change === 'new' ? 'חדש' : entry.change === 'updated' ? 'עודכנה' : null
   const inflated = story.sourceHeat >= story.intensity + 2
   const withImage = showImages && variant === 'lead' && story.image && story.intensity <= 2 && !story.graphic
 
@@ -46,7 +49,7 @@ export default function StoryItem({ entry, variant = 'standard', showClock = tru
           <span className="font-semibold text-accent">{topicLabels[story.primaryTopic] || ''}</span>
           <span>{timeAgo(story.publishedAt, now)}</span>
           <HeatGlyph level={story.intensity} showLabel={calm || story.intensity >= 3} />
-          {badge && <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-accent-ink">{badge}</span>}
+          {(badge || changeBadge) && <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-accent-ink">{badge || changeBadge}</span>}
         </div>
 
         <h3 className={`headline mt-2 ${HEADLINE_SIZE[variant]}`}>{story.headline}</h3>
@@ -58,7 +61,25 @@ export default function StoryItem({ entry, variant = 'standard', showClock = tru
               <Info size={15} aria-hidden="true" className="shrink-0" />
               {story.importance >= 4 ? 'ידיעה כבדה וחשובה, בניסוח מאופק' : 'ידיעה טעונה, בניסוח מאופק'}
             </p>
+            <details className="mt-2 max-w-[42rem]">
+              <summary className="cursor-pointer text-sm font-medium text-accent">הכותרות המקוריות של המקורות</summary>
+              <ul className="mt-2 space-y-1.5 text-[0.9375rem] leading-snug">
+                {story.sources.slice(0, 6).map(source => (
+                  <li key={source.key || source.url}>
+                    <span className="font-semibold">{source.name}: </span>
+                    {source.title}
+                  </li>
+                ))}
+              </ul>
+            </details>
           </>
+        )}
+
+        {entry.change === 'updated' && story.whatsNew && (
+          <p className="mt-3 max-w-[42rem] rounded-lg bg-[var(--track)] px-3 py-2 text-[0.9375rem] leading-[1.7]">
+            <strong className="font-semibold">מה השתנה מאז שקראת: </strong>
+            {story.whatsNew}
+          </p>
         )}
 
         {showLead && story.oneLiner && <p className="mt-3 max-w-[42rem] text-[1.0625rem] leading-[1.75]">{story.oneLiner}</p>}
@@ -80,12 +101,14 @@ export default function StoryItem({ entry, variant = 'standard', showClock = tru
                 ))}
               </ul>
             )}
+            <KnowledgeBlock story={story} />
             {story.whyItMatters && (
               <p className="mt-4 max-w-[42rem] text-[0.9375rem] leading-[1.7]">
                 <strong className="font-semibold">למה זה חשוב: </strong>
                 {story.whyItMatters}
               </p>
             )}
+            <Timeline story={story} open={expandTimeline} />
             {story.framing.length > 0 && (
               <details className="mt-4 max-w-[42rem]">
                 <summary className="cursor-pointer text-sm font-medium text-accent">איך כל מקור ניסח את זה</summary>

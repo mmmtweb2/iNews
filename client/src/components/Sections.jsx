@@ -15,14 +15,13 @@ function Toggle({ open, onClick, children, id }) {
   )
 }
 
-// Stories that matched the reader's topics but did not fit in their time.
-export function OverflowSection({ entries, ...cardProps }) {
-  const [open, setOpen] = useState(false)
+// Stories that did not make the brief: they did not fit the time, or sit under the prominence bar.
+export function OverflowSection({ entries, open, onToggle, ...cardProps }) {
   if (!entries.length) return null
   return (
     <section className="mt-4 border-t border-rule pt-6" aria-labelledby="overflow-title">
-      <Toggle id="overflow-title" open={open} onClick={() => setOpen(value => !value)}>
-        עוד {storiesCount(entries.length)} שלא נכנסו לזמן שבחרת
+      <Toggle id="overflow-title" open={open} onClick={() => onToggle(!open)}>
+        עוד {storiesCount(entries.length)} שלא נכנסו לבריף
       </Toggle>
       {open && (
         <ul className="mt-6 space-y-8">
@@ -66,7 +65,7 @@ export function FilteredSection({ stories, mutedCount, onEditTopics }) {
       {stories.length > 0 && (
         <>
           <Toggle id="filtered-title" open={open} onClick={() => setOpen(value => !value)}>
-            סוננו {storiesCount(stories.length)} לפי רמת הריגוש שבחרת
+            סוננו {storiesCount(stories.length)} לפי האופי שבחרת
           </Toggle>
           {open && (
             <>

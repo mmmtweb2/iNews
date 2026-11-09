@@ -1,8 +1,8 @@
-import { HeatControl, TimeControl } from './Controls.jsx'
-import { HEAT_NOTES } from '../lib/copy.js'
+import { TimeControl } from './Controls.jsx'
+import DialsPanel from './DialsPanel.jsx'
 import { storiesCount } from '../lib/format.js'
 
-// The reader's two dials (time and intensity) plus a summary of their topics.
+// The reader's controls: how much time they have, the five style dials, and a summary of their topics.
 // On wide screens it sits beside the brief; on phones it opens as a sheet.
 export default function Instrument({ prefs, update, topics, stats, onEditTopics }) {
   const labels = Object.fromEntries(topics.map(topic => [topic.id, topic.label]))
@@ -16,13 +16,12 @@ export default function Instrument({ prefs, update, topics, stats, onEditTopics 
         <TimeControl value={prefs.minutes} onChange={minutes => update({ minutes })} />
       </div>
 
-      <div className="mt-5">
-        <p className="mb-2 text-sm font-semibold">רמת ריגוש</p>
-        <HeatControl value={prefs.heat} onChange={heat => update({ heat })} />
-        <p className="mt-2 text-[0.8125rem] leading-snug text-soft">{HEAT_NOTES[prefs.heat]}</p>
+      <div className="mt-6 border-t border-rule pt-5">
+        <h2 className="mb-3 text-sm font-semibold">סגנון החדשות</h2>
+        <DialsPanel dials={prefs.dials} onChange={dials => update({ dials })} />
       </div>
 
-      <div className="mt-5">
+      <div className="mt-6 border-t border-rule pt-5">
         <div className="mb-2 flex items-center justify-between">
           <p className="text-sm font-semibold">התחומים שלך</p>
           <button type="button" onClick={onEditTopics} className="text-sm font-medium text-accent hover:underline hover:underline-offset-4">
@@ -54,7 +53,7 @@ export default function Instrument({ prefs, update, topics, stats, onEditTopics 
 
       {stats && (
         <p className="mt-5 border-t border-rule pt-4 text-[0.8125rem] leading-snug text-soft">
-          בבריף {storiesCount(stats.shown)} מתוך {stats.total}.{stats.filtered > 0 && ` ${stats.filtered} סוננו לפי רמת הריגוש.`}
+          בבריף {storiesCount(stats.shown)} מתוך {stats.total}.{stats.filtered > 0 && ` ${stats.filtered} סוננו לפי האופי שבחרת.`}
         </p>
       )}
     </section>

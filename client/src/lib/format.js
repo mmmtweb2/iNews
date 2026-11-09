@@ -27,3 +27,18 @@ export function storiesCount(n) {
 export function minutesLabel(minutes) {
   return minutes > 0 ? `${minutes} דק׳` : 'בלי הגבלה';
 }
+
+const pad = n => String(n).padStart(2, '0');
+
+// "היום 14:30", "אתמול 09:10", or "3 בנוב׳ 14:30": a point in time, in the reader's own clock.
+export function formatDate(iso, now = Date.now()) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const time = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  const startOfDay = value => new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
+  const days = Math.round((startOfDay(new Date(now)) - startOfDay(date)) / 86_400_000);
+  if (days === 0) return `היום ${time}`;
+  if (days === 1) return `אתמול ${time}`;
+  const months = ['בינו׳', 'בפבר׳', 'במרץ', 'באפר׳', 'במאי', 'ביוני', 'ביולי', 'באוג׳', 'בספט׳', 'באוק׳', 'בנוב׳', 'בדצמ׳'];
+  return `${date.getDate()} ${months[date.getMonth()]} ${time}`;
+}

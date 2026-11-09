@@ -115,7 +115,12 @@ test('loadFollows and saveFollows round-trip and survive broken storage', () => 
 
 test('followed stories heavier than the reader allows are softened, not hidden', () => {
   const heavy = story({ intensity: 4 })
-  assert.equal(entryForFollowed(heavy, 'balanced').tone, 'calm')
-  assert.equal(entryForFollowed(heavy, 'all').tone, 'normal')
-  assert.equal(entryForFollowed(story({ intensity: 2 }), 'calm').tone, 'normal')
+  assert.equal(entryForFollowed(heavy, { tone: 2 }).tone, 'calm')
+  assert.equal(entryForFollowed(heavy, { tone: 3 }).tone, 'normal')
+  assert.equal(entryForFollowed(story({ intensity: 2 }), { tone: 1 }).tone, 'normal')
+})
+
+test('the main followed story can be shown in full depth', () => {
+  assert.equal(entryForFollowed(story({ intensity: 1 }), { tone: 2 }, 'full').depth, 'full')
+  assert.equal(entryForFollowed(story({ intensity: 1 }), { tone: 2 }).depth, 'short')
 })

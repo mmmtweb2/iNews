@@ -1,8 +1,9 @@
 // Reader preferences. They live in this browser only (no accounts), versioned so
 // the shape can change later without breaking what people already saved.
 
+import { DEFAULT_DIALS, sanitizeDials } from './dials.js'
+
 export const MINUTE_OPTIONS = [2, 5, 10, 0]; // 0 = no limit
-export const HEAT_LEVELS = ['calm', 'balanced', 'all'];
 
 const KEY = 'inews.prefs.v1';
 const MAX_KEYWORDS = 12;
@@ -11,7 +12,7 @@ const MAX_HIDDEN = 300;
 export const DEFAULT_PREFS = {
   onboarded: false,
   minutes: 5,
-  heat: 'balanced',
+  dials: DEFAULT_DIALS, // tone, density, prominence, focus, freshness: each 0-4
   topics: {}, // topicId -> 'follow' | 'mute'   (absent = neutral)
   keywords: [],
   images: true,
@@ -39,7 +40,7 @@ export function sanitizePrefs(raw) {
   return {
     onboarded: input.onboarded === true,
     minutes: MINUTE_OPTIONS.includes(input.minutes) ? input.minutes : DEFAULT_PREFS.minutes,
-    heat: HEAT_LEVELS.includes(input.heat) ? input.heat : DEFAULT_PREFS.heat,
+    dials: sanitizeDials(input.dials, input.heat), // older saves had a three-way "heat" setting
     topics,
     keywords: keywords.slice(0, MAX_KEYWORDS),
     images: input.images !== false,

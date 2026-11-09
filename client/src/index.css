@@ -139,3 +139,22 @@ html[data-heat="all"] { --heat-now: var(--h5); }
 
 .skeleton { background: var(--track); border-radius: 6px; animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.5; } }
+
+/* Style dials: a native range input, five stops, the thumb sits on the stop. */
+.dial-wrap { position: relative; display: flex; align-items: center; height: 1.75rem; margin-top: 0.15rem; }
+.dial-ticks { position: absolute; inset-inline: 0.625rem; top: 50%; display: flex; justify-content: space-between; align-items: center; transform: translateY(-50%); pointer-events: none; }
+.dial-ticks span { width: 2px; height: 0.6rem; border-radius: 1px; background: var(--faint); opacity: 0.55; }
+.dial-ticks span[data-on="true"] { opacity: 0; }
+.dial { --thumb: var(--ink); position: relative; width: 100%; height: 1.75rem; margin: 0; background: transparent; cursor: pointer; appearance: none; -webkit-appearance: none; }
+.dial::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--rule); }
+.dial::-moz-range-track { height: 4px; border-radius: 2px; background: var(--rule); }
+.dial::-webkit-slider-thumb { -webkit-appearance: none; width: 1.25rem; height: 1.25rem; margin-top: calc((4px - 1.25rem) / 2); border-radius: 999px; border: 3px solid var(--paper); background: var(--thumb); box-shadow: 0 0 0 1px var(--thumb), 0 1px 3px rgb(4 12 16 / 0.3); transition: background-color 0.2s, transform 0.15s; }
+.dial::-moz-range-thumb { width: 0.85rem; height: 0.85rem; border-radius: 999px; border: 3px solid var(--paper); background: var(--thumb); box-shadow: 0 0 0 1px var(--thumb), 0 1px 3px rgb(4 12 16 / 0.3); }
+.dial:active::-webkit-slider-thumb { transform: scale(1.12); }
+.dial:focus-visible { outline: none; }
+.dial:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--accent); outline-offset: 3px; }
+.dial:focus-visible::-moz-range-thumb { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.preset { color: var(--soft); transition: background-color 0.15s, color 0.15s, border-color 0.15s; }
+.preset:hover { border-color: var(--faint); color: var(--ink); }
+.preset[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
