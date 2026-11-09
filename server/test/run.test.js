@@ -169,3 +169,14 @@ test('a one-sided political story is flagged as a blind spot', async () => {
     await runPipeline(d);
     assert.equal(d.store.read('stories.json').stories[0].coverage.blindspot, 'left');
 });
+
+test('onProgress reports each phase and the enrichment count', async () => {
+    const d = deps();
+    const seen = [];
+    await runPipeline({ ...d, onProgress: p => seen.push(p) });
+    assert.equal(seen[0].phase, 'ingest');
+    assert.ok(seen.some(p => p.phase === 'cluster'));
+    const enrich = seen.filter(p => p.phase === 'enrich');
+    assert.equal(enrich[0].done, 0);
+    assert.equal(enrich[enrich.length - 1].done, enrich[enrich.length - 1].total);
+});

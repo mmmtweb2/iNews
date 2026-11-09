@@ -37,3 +37,45 @@ test('demo data covers every state the interface has to handle', () => {
     const topics = new Set(stories.map(s => s.primaryTopic));
     assert.equal(topics.size, TOPIC_IDS.size);
 });
+
+const { applyRefreshWave, createDemoRun } = require('../demo/seed');
+const { tempStore: tmp } = require('./helpers');
+
+test('a demo refresh updates one story and adds follow-ups that share entities with earlier stories', async () => {
+    const store = tmp();
+    const t0 = new Date('2026-11-01T12:00:00Z');
+    store.write('stories.json', { generatedAt: t0.toISOString(), stories: buildDemoStories(t0, 1) });
+    const before = store.read('stories.json').stories;
+
+    const phases = [];
+    const t1 = new Date('2026-11-01T12:30:00Z');
+    const run = createDemoRun(store, { delayMs: 30, now: () => t1 });
+    assert.deepEqual(await run(p => phases.push(p.phase)), { ok: true });
+    assert.ok(phases.includes('ingest') && phases.includes('enrich'));
+
+    const after = store.read('stories.json').stories;
+    assert.equal(after.length, before.length + 4);
+    assert.equal(new Set(after.map(s => s.id)).size, after.length);
+
+    const strikeBefore = before.find(s => s.headline.startsWith('שביתה במפעל'));
+    const strikeAfter = after.find(s => s.id === strikeBefore.id);
+    assert.match(strikeAfter.headline, /הסתיימה/);
+    assert.equal(strikeAfter.updatedAt, t1.toISOString());
+
+    const rate = before.find(s => s.entities.includes('ריבית'));
+    const followUp = after.find(s => s.id === 'demo-f-01');
+    assert.ok(followUp.entities.includes('ריבית'));
+    assert.equal(followUp.firstSeenAt, t1.toISOString());
+    assert.ok(rate);
+});
+
+test('running the demo refresh twice does not duplicate follow-ups', async () => {
+    const store = tmp();
+    const t0 = new Date('2026-11-01T12:00:00Z');
+    store.write('stories.json', { generatedAt: t0.toISOString(), stories: buildDemoStories(t0, 1) });
+    const run = createDemoRun(store, { delayMs: 6 });
+    await run(() => {});
+    const n = store.read('stories.json').stories.length;
+    await run(() => {});
+    assert.equal(store.read('stories.json').stories.length, n);
+});

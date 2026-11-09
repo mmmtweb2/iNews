@@ -57,7 +57,7 @@ function composeStory({ id, cluster, enrichment, previous, now, model }) {
 
 // One full refresh: fetch feeds -> group by event -> write up and score each story -> persist.
 // Everything external is injected, so the whole run can be tested offline.
-async function runPipeline({ store, ai, parser, sources, fetchMeta = fetchArticleMeta, logger = console, now = () => new Date(), limits = {} }) {
+async function runPipeline({ store, ai, parser, sources, fetchMeta = fetchArticleMeta, logger = console, now = () => new Date(), limits = {}, onProgress = () => {} }) {
     const L = { ...DEFAULT_LIMITS, ...limits };
     const startedAt = now();
     const usageBefore = { ...(ai.usage || { calls: 0, inputTokens: 0, outputTokens: 0 }) };
@@ -83,6 +83,7 @@ async function runPipeline({ store, ai, parser, sources, fetchMeta = fetchArticl
     const previousById = new Map(previousStories.map(story => [story.id, story]));
 
     // 1. Ingest
+    onProgress({ phase: 'ingest' });
     const { items: fetched, health } = await fetchFeeds({ sources, parser, now: startedAt, maxAgeHours: L.maxAgeHours, perSourceLimit: L.perSource });
     run.sources = health;
     if (!fetched.length) {
@@ -92,6 +93,7 @@ async function runPipeline({ store, ai, parser, sources, fetchMeta = fetchArticl
     const items = fetched.sort(byPublishedDesc).slice(0, L.maxClusterItems);
 
     // 2. Group items about the same event
+    onProgress({ phase: 'cluster' });
     const clusters = await clusterItems({ items, ai, logger });
 
     // 3. Give each cluster a stable id by matching it to last run's stories (shared article URLs)
@@ -164,7 +166,14 @@ async function runPipeline({ store, ai, parser, sources, fetchMeta = fetchArticl
     store.write('articles.json', metaCache);
 
     // 6. Write up and score
-    const results = await mapPool(toEnrich, L.enrichConcurrency, plan => enrichCluster({ cluster: plan.cluster, ai }));
+    let done = 0;
+    onProgress({ phase: 'enrich', done, total: toEnrich.length });
+    const results = await mapPool(toEnrich, L.enrichConcurrency, async plan => {
+        const result = await enrichCluster({ cluster: plan.cluster, ai });
+        done += 1;
+        onProgress({ phase: 'enrich', done, total: toEnrich.length });
+        return result;
+    });
     let enriched = 0;
     let failed = 0;
     results.forEach((result, index) => {

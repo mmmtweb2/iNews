@@ -5,12 +5,14 @@ const os = require('os');
 const path = require('path');
 const { createApp } = require('../src/app');
 const { seedDemo } = require('../demo/seed');
+const { createRefreshController } = require('../src/refresh');
 const { tempStore, silent } = require('./helpers');
 
 async function serve(options = {}) {
     const store = options.store || tempStore();
     if (options.seed !== false) seedDemo(store);
-    const app = createApp({ store, logger: silent, ...options });
+    const refresh = options.refresh || createRefreshController({ store, run: options.run || (async () => ({ ok: true })), logger: silent, ...(options.policy || {}) });
+    const app = createApp({ store, refresh, logger: silent, ...options });
     const server = await new Promise(resolve => {
         const s = app.listen(0, '127.0.0.1', () => resolve(s));
     });
@@ -49,37 +51,86 @@ test('GET /api/feed on an empty store returns an empty, valid feed', async () =>
     }
 });
 
-test('the admin refresh endpoint is invisible without a token, and checked with one', async () => {
+test('POST /api/refresh starts one run, shares it, then answers "fresh" inside the cooldown', async () => {
     let started = 0;
-    const off = await serve({ runRefresh: async () => { started += 1; } });
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    const s = await serve({ run: async () => { started += 1; await gate; return { ok: true }; } });
+    try {
+        const first = await fetch(`${s.base}/api/refresh`, { method: 'POST' });
+        assert.equal(first.status, 202);
+        assert.equal((await first.json()).status, 'started');
+
+        const second = await fetch(`${s.base}/api/refresh`, { method: 'POST' });
+        assert.equal((await second.json()).status, 'running');
+        assert.equal(started, 1);
+
+        const state = await (await fetch(`${s.base}/api/refresh`)).json();
+        assert.equal(state.running, true);
+
+        release();
+        await new Promise(resolve => setTimeout(resolve, 20));
+        const after = await fetch(`${s.base}/api/refresh`, { method: 'POST' });
+        const body = await after.json();
+        assert.equal(after.status, 200);
+        assert.equal(body.status, 'fresh');
+        assert.ok(body.nextAllowedAt);
+        assert.ok(Number(after.headers.get('retry-after')) > 0);
+        assert.equal(started, 1);
+    } finally {
+        await s.close();
+    }
+});
+
+test('POST /api/refresh reports unavailable when there is no AI key, and the daily limit as 429', async () => {
+    const off = await serve({ refresh: createRefreshController({ store: tempStore(), run: async () => ({ ok: true }), available: false, logger: silent }) });
+    try {
+        assert.equal((await fetch(`${off.base}/api/refresh`, { method: 'POST' })).status, 503);
+    } finally {
+        await off.close();
+    }
+
+    const capped = await serve({ policy: { maxPerDay: 0 } });
+    try {
+        assert.equal((await fetch(`${capped.base}/api/refresh`, { method: 'POST' })).status, 429);
+    } finally {
+        await capped.close();
+    }
+});
+
+test('the feed is revalidated, never cached for a minute', async () => {
+    const s = await serve();
+    try {
+        assert.equal((await fetch(`${s.base}/api/feed`)).headers.get('cache-control'), 'no-cache');
+    } finally {
+        await s.close();
+    }
+});
+
+test('the admin refresh endpoint is invisible without a token, checked with one, and skips the cooldown', async () => {
+    let started = 0;
+    const off = await serve({ run: async () => { started += 1; return { ok: true }; } });
     try {
         assert.equal((await fetch(`${off.base}/api/admin/refresh`, { method: 'POST' })).status, 404);
     } finally {
         await off.close();
     }
 
-    const on = await serve({ adminToken: 's3cret', runRefresh: async () => { started += 1; } });
+    const on = await serve({ adminToken: 's3cret', run: async () => { started += 1; return { ok: true }; } });
     try {
         assert.equal((await fetch(`${on.base}/api/admin/refresh`, { method: 'POST' })).status, 401);
         assert.equal((await fetch(`${on.base}/api/admin/refresh`, { method: 'POST', headers: { 'x-admin-token': 'wrong' } })).status, 401);
         const ok = await fetch(`${on.base}/api/admin/refresh`, { method: 'POST', headers: { 'x-admin-token': 's3cret' } });
         assert.equal(ok.status, 202);
         assert.equal((await ok.json()).status, 'started');
-        assert.equal(started, 1);
+        await new Promise(resolve => setTimeout(resolve, 20));
+        // the public button is now in cooldown, the admin is not
+        assert.equal((await (await fetch(`${on.base}/api/refresh`, { method: 'POST' })).json()).status, 'fresh');
+        const again = await fetch(`${on.base}/api/admin/refresh`, { method: 'POST', headers: { 'x-admin-token': 's3cret' } });
+        assert.equal((await again.json()).status, 'started');
+        assert.equal(started, 2);
     } finally {
         await on.close();
-    }
-});
-
-test('admin refresh does not start a second run while one is in progress', async () => {
-    let started = 0;
-    const s = await serve({ adminToken: 't', isRefreshing: () => true, runRefresh: async () => { started += 1; } });
-    try {
-        const res = await fetch(`${s.base}/api/admin/refresh`, { method: 'POST', headers: { 'x-admin-token': 't' } });
-        assert.equal((await res.json()).status, 'already_running');
-        assert.equal(started, 0);
-    } finally {
-        await s.close();
     }
 });
 

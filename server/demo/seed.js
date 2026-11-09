@@ -218,46 +218,138 @@ const STORIES = [
     }],
 ];
 
-function buildDemoStories(now = new Date()) {
-    return STORIES.map(([age, topics, intensity, importance, sourceHeat, graphic, outletKeys, copy], index) => {
-        const sources = outletKeys.map((key, i) => {
-            const outlet = OUTLETS[key];
-            const publishedAt = new Date(now.getTime() - (age + i * 11) * 60_000).toISOString();
-            return { key: `demo${index}-${i}`, id: outlet.id, name: outlet.name, lean: outlet.lean, url: `https://example.com/demo/${index}/${i}`, title: copy.headline, publishedAt };
-        });
-        const framing = (copy.framing || []).map(([n, note]) => ({ sourceId: sources[n].id, source: sources[n].name, note }));
-        const story = {
-            id: `demo-${String(index + 1).padStart(2, '0')}`,
-            headline: copy.headline,
-            oneLiner: copy.oneLiner,
-            bullets: copy.bullets,
-            whyItMatters: copy.why,
-            calmSummary: copy.calm,
-            contested: copy.contested || '',
-            topics,
-            entities: copy.entities || [],
-            intensity,
-            importance,
-            sourceHeat,
-            graphic,
-            framing,
-            primaryTopic: topics[0],
-            sources,
-            coverage: computeCoverage(sources, topics),
-            publishedAt: sources[0].publishedAt,
-            firstSeenAt: sources[sources.length - 1].publishedAt,
-            updatedAt: sources[0].publishedAt,
-            image: null,
-            model: 'demo',
-        };
-        story.readSec = readTimes(story);
-        return story;
-    }).sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+// What a second refresh brings in demo mode: one update to an existing story and a few
+// follow-ups, so the "following" area can be tried without waiting for real news.
+const UPDATE_PREFIX = 'שביתה במפעל';
+const UPDATE = {
+    headline: 'השביתה במפעל הסתיימה: הוועד וההנהלה חתמו על הסכם שכר',
+    oneLiner: 'ההסכם כולל עדכון שכר הדרגתי ותנאי פרישה מוסכמים. קו הייצור יחזור לפעול מחר בבוקר.',
+    bullets: ['העובדים יחזרו לעבודה כבר מחר', 'לקוחות גדולים אמרו שיבדקו את לוחות האספקה מחדש'],
+    why: 'סיום השביתה מקטין את הסיכון לעיכובים באספקה ולעלייה במחירים.',
+    calm: 'השביתה במפעל הסתיימה אחרי שהוועד וההנהלה חתמו על הסכם שכר. העובדים חוזרים לעבודה מחר.',
+};
+
+const FOLLOWUPS = [
+    [4, ['economy'], 1, 3, 1, false, ['biz', 'evening'], {
+        headline: 'נתוני האינפלציה לחודש האחרון: מחירי המזון עלו, מחירי הדלק ירדו',
+        oneLiner: 'האינפלציה השנתית נשארה בטווח היעד, כך עולה מהנתונים שפורסמו הבוקר. הנתונים נבחנים לקראת החלטת הריבית הבאה.',
+        bullets: ['מחירי המזון עלו בעיקר בירקות ובפירות', 'מחירי הדלק ירדו אחרי ירידה במחירי האנרגיה בעולם', 'כלכלנים מעריכים שהריבית תישאר ללא שינוי'],
+        why: 'נתוני האינפלציה הם אחד הגורמים העיקריים בהחלטה על גובה הריבית ועל החזרי המשכנתאות.',
+        calm: 'האינפלציה השנתית נשארה בטווח היעד. מחירי המזון עלו ומחירי הדלק ירדו.',
+        entities: ['אינפלציה', 'ריבית', 'משכנתאות'],
+    }],
+    [9, ['politics'], 2, 4, 3, false, ['mirror', 'nation', 'evening'], {
+        headline: 'מליאת הכנסת אישרה בקריאה שלישית את חוק מימון המפלגות',
+        oneLiner: 'החוק עבר ברוב קולות אחרי דיון ארוך. האופוזיציה הודיעה שתעתור נגדו, והקואליציה אמרה שהוא יצמצם תרומות פרטיות.',
+        bullets: ['יועצים משפטיים ביקשו תיקונים שנוספו לנוסח הסופי', 'החוק ייכנס לתוקף לקראת הבחירות הבאות'],
+        why: 'החוק קובע איך מפלגות ימומנו בבחירות הבאות.',
+        calm: 'מליאת הכנסת אישרה את חוק מימון המפלגות. האופוזיציה הודיעה שתעתור נגדו.',
+        contested: 'הקואליציה אומרת שהחוק מצמצם תרומות פרטיות; האופוזיציה אומרת שהוא מקשה על מפלגות חדשות.',
+        entities: ['מימון מפלגות', 'מליאה', 'קריאה שלישית'],
+        framing: [[0, 'מדגיש את הצעד האחרון בחקיקה ואת הכוונה לעתור'], [1, 'מדגיש את הטענה שהחוק מצמצם תרומות פרטיות']],
+    }],
+    [16, ['tech'], 1, 3, 1, false, ['tech'], {
+        headline: 'מפתחים קיבלו גרסת בדיקה של מודל השפה הישראלי שרץ על הטלפון',
+        oneLiner: 'הגרסה זמינה להורדה לבדיקה בלבד. החברה מבקשת ממפתחים לדווח על טעויות בדיוק.',
+        bullets: ['הגרסה פועלת בלי חיבור לרשת', 'החברה אומרת שהדיוק משתפר בעדכונים שבועיים'],
+        why: '',
+        calm: 'חברה ישראלית פתחה גרסת בדיקה של מודל שפה שרץ על הטלפון. מפתחים מתבקשים לדווח על טעויות.',
+        entities: ['מודל שפה', 'עיבוד מקומי', 'מפתחים'],
+    }],
+    [22, ['sports', 'society'], 1, 2, 1, false, ['sport', 'evening'], {
+        headline: 'האצטדיון החדש נחנך: 30 אלף צופים צפויים במשחק הפתיחה',
+        oneLiner: 'האצטדיון נבנה בשלוש שנים. משחק הפתיחה יתקיים בשבת, ותחבורה ציבורית מיוחדת תפעל לקראתו.',
+        bullets: ['הכרטיסים נמכרו ברובם', 'התחבורה הציבורית תחזק קווים לאצטדיון'],
+        why: '',
+        calm: 'האצטדיון החדש נחנך. משחק הפתיחה יתקיים בשבת.',
+        entities: ['אצטדיון', 'משחק פתיחה'],
+    }],
+];
+
+function makeStory(tuple, index, now, prefix) {
+    const [age, topics, intensity, importance, sourceHeat, graphic, outletKeys, copy] = tuple;
+    const sources = outletKeys.map((key, i) => {
+        const outlet = OUTLETS[key];
+        const publishedAt = new Date(now.getTime() - (age + i * 11) * 60_000).toISOString();
+        return { key: `${prefix}${index}-${i}`, id: outlet.id, name: outlet.name, lean: outlet.lean, url: `https://example.com/demo/${prefix}${index}/${i}`, title: copy.headline, publishedAt };
+    });
+    const framing = (copy.framing || []).map(([n, note]) => ({ sourceId: sources[n].id, source: sources[n].name, note }));
+    const story = {
+        id: `${prefix === 'demo' ? 'demo' : 'demo-f'}-${String(index + 1).padStart(2, '0')}`,
+        headline: copy.headline,
+        oneLiner: copy.oneLiner,
+        bullets: copy.bullets,
+        whyItMatters: copy.why,
+        calmSummary: copy.calm,
+        contested: copy.contested || '',
+        topics,
+        entities: copy.entities || [],
+        intensity,
+        importance,
+        sourceHeat,
+        graphic,
+        framing,
+        primaryTopic: topics[0],
+        sources,
+        coverage: computeCoverage(sources, topics),
+        publishedAt: sources[0].publishedAt,
+        firstSeenAt: sources[sources.length - 1].publishedAt,
+        updatedAt: sources[0].publishedAt,
+        image: null,
+        model: 'demo',
+    };
+    story.readSec = readTimes(story);
+    return story;
+}
+
+// Wave 2 is what a refresh adds. It builds on the stories already stored, so earlier stories keep
+// their ids and first-seen times, exactly as the real pipeline does.
+function applyRefreshWave(existing, now) {
+    const stamp = now.toISOString();
+    const stories = existing.map(story => ({ ...story }));
+    const target = stories.find(story => story.headline.startsWith(UPDATE_PREFIX));
+    if (target) {
+        Object.assign(target, { headline: UPDATE.headline, oneLiner: UPDATE.oneLiner, bullets: UPDATE.bullets, whyItMatters: UPDATE.why, calmSummary: UPDATE.calm, contested: '', framing: [], updatedAt: stamp });
+        target.readSec = readTimes(target);
+    }
+    FOLLOWUPS.forEach((tuple, index) => {
+        if (stories.some(story => story.id === `demo-f-${String(index + 1).padStart(2, '0')}`)) return; // already added
+        const story = makeStory(tuple, index, now, 'followup');
+        story.firstSeenAt = stamp; // first seen by this refresh
+        story.updatedAt = stamp;
+        stories.push(story);
+    });
+    return stories.sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+}
+
+function buildDemoStories(now = new Date(), wave = 1) {
+    const stories = STORIES.map((tuple, index) => makeStory(tuple, index, now, 'demo')).sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+    return wave >= 2 ? applyRefreshWave(stories, now) : stories;
 }
 
 function seedDemo(store, now = new Date()) {
-    store.write('stories.json', { generatedAt: new Date(now.getTime() - 6 * 60_000).toISOString(), stories: buildDemoStories(now) });
+    store.write('stories.json', { generatedAt: new Date(now.getTime() - 6 * 60_000).toISOString(), stories: buildDemoStories(now, 1) });
     store.write('meta.json', { lastRun: null, lastSuccessAt: null });
 }
 
-module.exports = { buildDemoStories, seedDemo, OUTLETS };
+// Stands in for the real pipeline in demo mode: waits a moment, then publishes wave 2.
+function createDemoRun(store, { delayMs = 2500, now = () => new Date() } = {}) {
+    return async onProgress => {
+        const steps = ['ingest', 'cluster'];
+        for (const phase of steps) {
+            onProgress({ phase });
+            await new Promise(resolve => setTimeout(resolve, delayMs / 3));
+        }
+        const total = FOLLOWUPS.length + 1;
+        for (let done = 0; done <= total; done += 1) {
+            onProgress({ phase: 'enrich', done, total });
+            await new Promise(resolve => setTimeout(resolve, delayMs / (total * 3)));
+        }
+        const time = now();
+        const current = store.read('stories.json', { stories: [] }).stories;
+        store.write('stories.json', { generatedAt: time.toISOString(), stories: applyRefreshWave(current, time) });
+        return { ok: true };
+    };
+}
+
+module.exports = { buildDemoStories, applyRefreshWave, seedDemo, createDemoRun, OUTLETS };

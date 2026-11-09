@@ -67,7 +67,7 @@ function publicSources() {
     return [...publishers, { id: 'aggregator', name: 'Google News', lang: 'he', lean: null, kind: 'aggregator' }];
 }
 
-function createApp({ store, runRefresh = async () => {}, isRefreshing = () => false, adminToken = '', publicDir = null, demo = false, logger = console, rateLimit = { windowMs: 60_000, max: 120 } }) {
+function createApp({ store, refresh, adminToken = '', publicDir = null, demo = false, logger = console, rateLimit = { windowMs: 60_000, max: 120 } }) {
     const app = express();
     app.disable('x-powered-by');
     app.set('trust proxy', 1);
@@ -76,14 +76,16 @@ function createApp({ store, runRefresh = async () => {}, isRefreshing = () => fa
     app.get('/healthz', (req, res) => res.json({ ok: true }));
 
     app.use('/api', cors({ methods: ['GET'] }), rateLimiter(rateLimit));
+    const refreshLimiter = rateLimiter({ windowMs: 60_000, max: 6 });
 
+    // The feed only changes when a reader presses refresh, so always revalidate (a cheap file read).
     app.get('/api/feed', (req, res) => {
         const feed = store.read('stories.json', { generatedAt: null, stories: [] });
-        res.set('Cache-Control', 'public, max-age=60');
+        res.set('Cache-Control', 'no-cache');
         res.json({
             demo,
             generatedAt: feed.generatedAt || null,
-            refreshing: isRefreshing(),
+            refreshing: refresh.status().running,
             topics: TOPICS.map(({ id, label }) => ({ id, label })),
             leanLabels: LEAN_LABELS,
             sources: publicSources(),
@@ -98,13 +100,37 @@ function createApp({ store, runRefresh = async () => {}, isRefreshing = () => fa
         res.json({ demo, generatedAt: feed.generatedAt || null, storyCount: (feed.stories || []).length, lastSuccessAt: meta.lastSuccessAt || null, lastRun: meta.lastRun || null });
     });
 
-    // Disabled unless ADMIN_TOKEN is set. The scheduled refresh does not need it.
+    // What the refresh button needs: is a run going, how far along, and when may the next one start.
+    const view = result => ({
+        status: result.status,
+        running: result.running,
+        progress: result.progress,
+        nextAllowedAt: result.nextAllowedAt,
+        retryAfterSec: result.retryAfterSec || null,
+        remainingToday: result.remainingToday,
+    });
+    const HTTP = { started: 202, running: 202, fresh: 200, limit: 429, unavailable: 503 };
+
+    app.get('/api/refresh', (req, res) => {
+        res.set('Cache-Control', 'no-store');
+        res.json(view({ status: refresh.status().running ? 'running' : 'idle', ...refresh.status() }));
+    });
+
+    // Public on purpose: this is the refresh button. Safe because the controller allows one run at a time,
+    // shares a cooldown between all readers, and stops at a daily cap, so repeated calls cost nothing.
+    app.post('/api/refresh', refreshLimiter, (req, res) => {
+        const result = refresh.request();
+        if (result.retryAfterSec) res.set('Retry-After', String(result.retryAfterSec));
+        res.set('Cache-Control', 'no-store');
+        res.status(HTTP[result.status] || 200).json(view(result));
+    });
+
+    // Disabled unless ADMIN_TOKEN is set. Skips the cooldown and the daily cap.
     app.post('/api/admin/refresh', (req, res) => {
         if (!adminToken) return res.status(404).json({ error: 'not_found' });
         if (!safeEqual(req.get('x-admin-token') || '', adminToken)) return res.status(401).json({ error: 'unauthorized' });
-        if (isRefreshing()) return res.status(202).json({ status: 'already_running' });
-        runRefresh().catch(error => logger.error(`refresh failed: ${error.message}`));
-        res.status(202).json({ status: 'started' });
+        const result = refresh.request({ force: true });
+        res.status(HTTP[result.status] || 200).json(view(result));
     });
 
     app.use('/api', (req, res) => res.status(404).json({ error: 'not_found' }));
