@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, EyeOff, Info } from 'lucide-react'
+import { Bookmark, BookmarkCheck, ChevronDown, EyeOff, Info } from 'lucide-react'
 import HeatGlyph from './HeatGlyph.jsx'
 import Coverage from './Coverage.jsx'
 import { formatClock, timeAgo } from '../lib/format.js'
@@ -17,9 +17,10 @@ function LeadImage({ src }) {
 }
 
 // One story. `entry.depth` decides how much is open by default; the reader can always open more.
-export default function StoryItem({ entry, variant = 'standard', showClock = true, active = false, now, topicLabels, leanLabels, showImages, onHide }) {
+export default function StoryItem({ entry, variant = 'standard', showClock = true, active = false, now, topicLabels, leanLabels, showImages, onHide, followedIds = null, onFollow, note = null, badge = null }) {
   const { story, tone, depth, startSec } = entry
   const calm = tone === 'calm'
+  const followed = Boolean(followedIds && followedIds.has(story.id))
   const [open, setOpen] = useState(depth === 'full')
 
   const showLead = !calm && (depth !== 'headline' || open)
@@ -45,6 +46,7 @@ export default function StoryItem({ entry, variant = 'standard', showClock = tru
           <span className="font-semibold text-accent">{topicLabels[story.primaryTopic] || ''}</span>
           <span>{timeAgo(story.publishedAt, now)}</span>
           <HeatGlyph level={story.intensity} showLabel={calm || story.intensity >= 3} />
+          {badge && <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-accent-ink">{badge}</span>}
         </div>
 
         <h3 className={`headline mt-2 ${HEADLINE_SIZE[variant]}`}>{story.headline}</h3>
@@ -54,7 +56,7 @@ export default function StoryItem({ entry, variant = 'standard', showClock = tru
             <p className="mt-3 max-w-[42rem] text-[1.0625rem] leading-[1.75]">{story.calmSummary}</p>
             <p className="mt-3 flex items-center gap-1.5 text-[0.8125rem] text-soft">
               <Info size={15} aria-hidden="true" className="shrink-0" />
-              ידיעה כבדה וחשובה, בניסוח מאופק
+              {story.importance >= 4 ? 'ידיעה כבדה וחשובה, בניסוח מאופק' : 'ידיעה טעונה, בניסוח מאופק'}
             </p>
           </>
         )}
@@ -107,6 +109,8 @@ export default function StoryItem({ entry, variant = 'standard', showClock = tru
           </p>
         )}
 
+        {note && <p className="mt-3 text-[0.8125rem] text-soft">{note}</p>}
+
         {(showLead || calm || open) && <Coverage story={story} leanLabels={leanLabels} />}
 
         <div className="mt-5 flex items-center gap-6 text-sm">
@@ -116,10 +120,16 @@ export default function StoryItem({ entry, variant = 'standard', showClock = tru
               <ChevronDown size={16} aria-hidden="true" className={`transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
           )}
-          <button type="button" onClick={() => onHide(story.id)} className="inline-flex items-center gap-1.5 text-soft hover:text-ink">
+          {onFollow && (
+            <button type="button" aria-pressed={followed} onClick={() => onFollow(story)} className={`inline-flex items-center gap-1.5 font-medium ${followed ? 'text-accent' : 'text-soft hover:text-ink'}`}>
+              {followed ? <BookmarkCheck size={16} aria-hidden="true" /> : <Bookmark size={16} aria-hidden="true" />}
+              {followed ? 'במעקב' : 'מעניין אותי'}
+            </button>
+          )}
+          {onHide && <button type="button" onClick={() => onHide(story.id)} className="inline-flex items-center gap-1.5 text-soft hover:text-ink">
             <EyeOff size={15} aria-hidden="true" />
             הסתר
-          </button>
+          </button>}
         </div>
       </div>
     </article>

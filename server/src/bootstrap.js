@@ -24,20 +24,13 @@ function createRuntime(env = process.env, logger = console) {
         timeout: 10000, // one unresponsive site must not stall the whole refresh
     });
 
-    let running = null;
-
-    // Single-flight: callers that arrive during a run share it.
-    function runRefresh() {
+    // One full pipeline run. Never called on a timer: the refresh controller starts it when a reader asks.
+    function runRefresh(onProgress) {
         if (!ai) return Promise.reject(new Error('ANTHROPIC_API_KEY is not set'));
-        if (!running) {
-            running = runPipeline({ store, ai, parser, sources: SOURCES, logger }).finally(() => {
-                running = null;
-            });
-        }
-        return running;
+        return runPipeline({ store, ai, parser, sources: SOURCES, logger, onProgress });
     }
 
-    return { store, dataDir, hasAi: Boolean(ai), model: ai ? ai.model : null, runRefresh, isRefreshing: () => running !== null };
+    return { store, dataDir, hasAi: Boolean(ai), model: ai ? ai.model : null, runRefresh };
 }
 
 module.exports = { createRuntime, DEFAULT_MODEL };

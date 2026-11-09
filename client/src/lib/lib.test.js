@@ -74,3 +74,24 @@ test('reachLabel describes breadth of reporting without claiming verification', 
   assert.equal(reachLabel({ owners: 2, official: true }, 2).text, 'דווח ב-2 גופי תקשורת. כולל מקור רשמי.')
   assert.equal(reachLabel(undefined, 1).single, true)
 })
+
+import { progressText, refreshMessage } from './copy.js'
+
+test('progressText names the phase and counts stories being written', () => {
+  assert.equal(progressText(null), 'מתחיל')
+  assert.equal(progressText({ phase: 'ingest' }), 'אוסף כותרות מהאתרים')
+  assert.equal(progressText({ phase: 'enrich', done: 3, total: 10 }), 'כותב ידיעה 4 מתוך 10')
+  assert.equal(progressText({ phase: 'enrich', done: 10, total: 10 }), 'כותב ידיעה 10 מתוך 10')
+  assert.equal(progressText({ phase: 'enrich', done: 0, total: 0 }), 'בודק מה השתנה')
+})
+
+test('refreshMessage says what happened', () => {
+  assert.equal(refreshMessage({ kind: 'done', added: 0, changed: 0 }), 'אין ידיעות חדשות כרגע.')
+  assert.equal(refreshMessage({ kind: 'done', added: 1, changed: 0 }), 'נוספה ידיעה חדשה.')
+  assert.equal(refreshMessage({ kind: 'done', added: 0, changed: 1 }), 'ידיעה אחת עודכנה.')
+  assert.equal(refreshMessage({ kind: 'done', added: 4, changed: 2 }), 'נוספו 4 ידיעות חדשות ו-2 עודכנו.')
+  assert.equal(refreshMessage({ kind: 'fresh', retryAfterSec: 200 }), 'הידיעות עדכניות. אפשר לרענן שוב בעוד 4 דקות.')
+  assert.equal(refreshMessage({ kind: 'fresh', retryAfterSec: 30 }), 'הידיעות עדכניות. אפשר לרענן שוב בעוד דקה.')
+  assert.match(refreshMessage({ kind: 'limit' }), /מכסת/)
+  assert.match(refreshMessage({ kind: 'nope' }), /נכשל/)
+})

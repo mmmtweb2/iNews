@@ -1,3 +1,6 @@
+import { RefreshCw } from 'lucide-react'
+import { progressText, refreshMessage } from '../lib/copy.js'
+
 export function FeedSkeleton() {
   return (
     <div aria-busy="true" aria-label="טוען חדשות" className="mt-6 space-y-12">
@@ -41,17 +44,23 @@ export function ErrorState({ onRetry }) {
   )
 }
 
-export function EmptyFeed({ onRetry }) {
+export function EmptyFeed({ refresh }) {
+  const { running, progress, message, start } = refresh
   return (
     <Message
-      title="הידיעות הראשונות בדרך"
+      title="עוד לא נאספו ידיעות"
       action={
-        <button type="button" onClick={onRetry} className={buttonClass}>
-          בדוק שוב
+        <button type="button" onClick={start} disabled={running} className={`${buttonClass} inline-flex items-center gap-2 disabled:opacity-70`}>
+          <RefreshCw size={16} aria-hidden="true" className={running ? 'motion-safe:animate-spin' : ''} />
+          {running ? 'טוען חדשות' : 'טען חדשות עכשיו'}
         </button>
       }
     >
-      המערכת אוספת ומסכמת חדשות. זה לוקח כמה דקות אחרי ההפעלה הראשונה.
+      {running
+        ? `${progressText(progress)}. הריצה הראשונה לוקחת כמה דקות.`
+        : message
+          ? refreshMessage(message)
+          : 'האתר אוסף ומסכם חדשות רק כשמבקשים. הריצה הראשונה לוקחת כמה דקות.'}
     </Message>
   )
 }
