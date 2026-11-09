@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildBriefing, scoreStory, matchesKeywords } from './briefing.js';
 import { DEFAULT_PREFS } from './prefs.js';
+import { DEFAULT_DIALS, PRESETS } from './dials.js';
 
 const NOW = Date.parse('2026-11-01T12:00:00Z');
 
@@ -26,6 +27,7 @@ function story(overrides = {}) {
 }
 
 const prefs = (overrides = {}) => ({ ...DEFAULT_PREFS, ...overrides });
+const dl = overrides => ({ ...DEFAULT_DIALS, ...overrides });
 const ids = list => list.map(entry => entry.story.id);
 
 test('the brief never exceeds the time budget (except for a single over-long top story)', () => {
@@ -79,25 +81,25 @@ test('unlimited time lists everything, with full depth only for the top few', ()
 
 test('intensity cap: calm hides tense stories, balanced hides heavy ones, all shows everything', () => {
   const stories = [story({ intensity: 1 }), story({ intensity: 3 }), story({ intensity: 5, importance: 2 })];
-  assert.equal(buildBriefing(stories, prefs({ heat: 'calm', minutes: 0 }), NOW).items.length, 1);
-  assert.equal(buildBriefing(stories, prefs({ heat: 'balanced', minutes: 0 }), NOW).items.length, 2);
-  assert.equal(buildBriefing(stories, prefs({ heat: 'all', minutes: 0 }), NOW).items.length, 3);
+  assert.equal(buildBriefing(stories, prefs({ dials: dl({ tone: 1 }), minutes: 0 }), NOW).items.length, 1);
+  assert.equal(buildBriefing(stories, prefs({ dials: dl({ tone: 2 }), minutes: 0 }), NOW).items.length, 2);
+  assert.equal(buildBriefing(stories, prefs({ dials: dl({ tone: 3 }), minutes: 0 }), NOW).items.length, 3);
 });
 
 test('heavy but important stories are kept, as a calm rewrite, instead of being hidden', () => {
   const heavyImportant = story({ intensity: 4, importance: 5 });
   const heavyMinor = story({ intensity: 4, importance: 2 });
-  const result = buildBriefing([heavyImportant, heavyMinor], prefs({ heat: 'balanced', minutes: 0 }), NOW);
+  const result = buildBriefing([heavyImportant, heavyMinor], prefs({ dials: dl({ tone: 2 }), minutes: 0 }), NOW);
   assert.deepEqual(result.items.map(item => [item.story.id, item.tone, item.depth]), [[heavyImportant.id, 'calm', 'calm']]);
   assert.deepEqual(result.filtered.map(s => s.id), [heavyMinor.id]);
 });
 
 test('graphic stories are rewritten or hidden unless the reader chose everything', () => {
   const graphic = story({ intensity: 4, importance: 2, graphic: true });
-  assert.equal(buildBriefing([graphic], prefs({ heat: 'balanced', minutes: 0 }), NOW).filtered.length, 1);
-  assert.equal(buildBriefing([graphic], prefs({ heat: 'all', minutes: 0 }), NOW).items.length, 1);
+  assert.equal(buildBriefing([graphic], prefs({ dials: dl({ tone: 2 }), minutes: 0 }), NOW).filtered.length, 1);
+  assert.equal(buildBriefing([graphic], prefs({ dials: dl({ tone: 3 }), minutes: 0 }), NOW).items.length, 1);
   const important = story({ intensity: 3, importance: 4, graphic: true });
-  assert.equal(buildBriefing([important], prefs({ heat: 'balanced', minutes: 0 }), NOW).items[0].tone, 'calm');
+  assert.equal(buildBriefing([important], prefs({ dials: dl({ tone: 2 }), minutes: 0 }), NOW).items[0].tone, 'calm');
 });
 
 test('muted topics are left out, but not the biggest news and not followed keywords', () => {
@@ -144,7 +146,7 @@ test('nothing is lost: every story is either shown, in overflow, filtered, muted
   const stories = [
     ...Array.from({ length: 25 }, (_, i) => story({ importance: 1 + (i % 5), intensity: 1 + (i % 5), topics: [i % 4 === 0 ? 'sports' : 'tech'], primaryTopic: i % 4 === 0 ? 'sports' : 'tech' })),
   ];
-  const p = prefs({ heat: 'balanced', minutes: 2, topics: { sports: 'mute' }, hidden: [stories[1].id] });
+  const p = prefs({ dials: dl({ tone: 2 }), minutes: 2, topics: { sports: 'mute' }, hidden: [stories[1].id] });
   const result = buildBriefing(stories, p, NOW);
   const accounted = result.items.length + result.overflow.length + result.filtered.length + result.muted.length + 1;
   assert.equal(accounted, stories.length);
@@ -155,4 +157,119 @@ test('the same input always produces the same brief', () => {
   const a = buildBriefing(stories, prefs(), NOW);
   const b = buildBriefing(stories, prefs(), NOW);
   assert.deepEqual(ids(a.items), ids(b.items));
+});
+
+test('every dial in its middle position reproduces the original brief', () => {
+  const stories = Array.from({ length: 12 }, () => story());
+  const result = buildBriefing(stories, prefs({ minutes: 0 }), NOW);
+  assert.equal(result.items.length, 12);
+  assert.equal(result.items.filter(item => item.depth === 'full').length, 3);
+});
+
+test('tone: the calmest end hides even moderately tense stories, the far end ranks intense news first', () => {
+  const tense = story({ intensity: 3, importance: 3 });
+  const quiet = story({ intensity: 1, importance: 3 });
+  assert.deepEqual(ids(buildBriefing([tense, quiet], prefs({ dials: dl({ tone: 0 }), minutes: 0 }), NOW).items), [quiet.id]);
+  const heavy = story({ intensity: 5, importance: 3 });
+  const first = buildBriefing([quiet, heavy], prefs({ dials: dl({ tone: 4 }), minutes: 0 }), NOW).items[0];
+  assert.equal(first.story.id, heavy.id);
+  const calmFirst = buildBriefing([quiet, heavy], prefs({ dials: dl({ tone: 2 }), minutes: 0 }), NOW).items[0];
+  assert.equal(calmFirst.story.id, quiet.id);
+});
+
+test('tone never hides the important: at the calmest setting a heavy big story is a calm rewrite', () => {
+  const big = story({ intensity: 5, importance: 5 });
+  const result = buildBriefing([big], prefs({ dials: dl({ tone: 0 }), minutes: 0 }), NOW);
+  assert.deepEqual(result.items.map(item => item.tone), ['calm']);
+});
+
+test('density: the sparse end shows few stories in depth, the dense end shows many headlines', () => {
+  const stories = Array.from({ length: 30 }, (_, i) => story({ importance: 1 + (i % 5) }));
+  const dense = buildBriefing(stories, prefs({ dials: dl({ density: 0 }), minutes: 0 }), NOW);
+  assert.ok(dense.items.every(item => item.depth === 'headline'));
+  assert.equal(dense.items.length, 30);
+  const sparse = buildBriefing(stories, prefs({ dials: dl({ density: 4 }), minutes: 0 }), NOW);
+  assert.ok(sparse.items.length <= 10);
+  assert.ok(sparse.items.every(item => item.depth === 'full'));
+  assert.equal(sparse.items.length + sparse.overflow.length, 30);
+});
+
+test('density steps a story down a level instead of dropping it when time is short', () => {
+  const timing = { readSec: { headline: 4, short: 30, full: 50 } };
+  const result = buildBriefing([story(timing), story(timing)], prefs({ dials: dl({ density: 4 }), minutes: 1 }), NOW);
+  assert.deepEqual(result.items.map(item => item.depth), ['full', 'headline']);
+  assert.ok(result.usedSec <= 60);
+});
+
+test('prominence: the strict end moves small stories to "more stories" without losing them', () => {
+  const stories = [story({ importance: 5 }), story({ importance: 4 }), story({ importance: 2 }), story({ importance: 1 })];
+  const strict = buildBriefing(stories, prefs({ dials: dl({ prominence: 4 }), minutes: 0 }), NOW);
+  assert.deepEqual(strict.items.map(item => item.story.importance), [5, 4]);
+  assert.deepEqual(strict.overflow.map(item => item.story.importance), [2, 1]);
+  const open = buildBriefing(stories, prefs({ dials: dl({ prominence: 0 }), minutes: 0 }), NOW);
+  assert.equal(open.items.length, 4);
+});
+
+test('prominence: a followed topic is not pushed down to "more stories"', () => {
+  const small = story({ importance: 1, topics: ['economy'], primaryTopic: 'economy' });
+  const result = buildBriefing([small], prefs({ dials: dl({ prominence: 4 }), topics: { economy: 'follow' }, minutes: 0 }), NOW);
+  assert.equal(result.items.length, 1);
+});
+
+test('focus: the strict end holds back topics the reader did not follow, the open end spreads topics out', () => {
+  const followed = story({ importance: 3, topics: ['economy'], primaryTopic: 'economy' });
+  const other = story({ importance: 3 });
+  const p = prefs({ topics: { economy: 'follow' } });
+  assert.ok(scoreStory(other, { ...p, dials: dl({ focus: 0 }) }, NOW) < scoreStory(other, { ...p, dials: dl({ focus: 2 }) }, NOW));
+  assert.ok(scoreStory(followed, { ...p, dials: dl({ focus: 0 }) }, NOW) > scoreStory(followed, { ...p, dials: dl({ focus: 4 }) }, NOW));
+  const sameTopic = Array.from({ length: 4 }, () => story({ importance: 4 }));
+  const diverse = [story({ importance: 3, topics: ['world'], primaryTopic: 'world' }), ...sameTopic];
+  const spread = buildBriefing(diverse, prefs({ dials: dl({ focus: 4 }), minutes: 0 }), NOW).items;
+  assert.ok(spread.slice(0, 4).some(item => item.story.primaryTopic === 'world'));
+  const clustered = buildBriefing(diverse, prefs({ dials: dl({ focus: 2 }), minutes: 0 }), NOW).items;
+  assert.equal(clustered[clustered.length - 1].story.primaryTopic, 'world');
+});
+
+test('freshness: the fresh end lifts new stories over bigger old ones, the other end ignores age', () => {
+  const old = story({ importance: 4, publishedAt: new Date(NOW - 20 * 3_600_000).toISOString() });
+  const fresh = story({ importance: 3, publishedAt: new Date(NOW - 10 * 60_000).toISOString() });
+  const order = freshness => ids(buildBriefing([old, fresh], prefs({ dials: dl({ freshness }), minutes: 0 }), NOW).items)[0];
+  assert.equal(order(0), fresh.id);
+  assert.equal(order(4), old.id);
+});
+
+test('the seen record marks stories that are new or have changed since the reader last read', () => {
+  const a = story({ updatedAt: '2026-11-01T10:00:00Z' });
+  const b = story({ updatedAt: '2026-11-01T11:00:00Z' });
+  const c = story({ updatedAt: '2026-11-01T09:00:00Z' });
+  const seen = new Map([[a.id, '2026-11-01T10:00:00Z'], [b.id, '2026-11-01T08:00:00Z']]);
+  const result = buildBriefing([a, b, c], prefs({ minutes: 0 }), NOW, { seen });
+  const change = id => result.items.find(item => item.story.id === id).change;
+  assert.equal(change(a.id), null);
+  assert.equal(change(b.id), 'updated');
+  assert.equal(change(c.id), 'new');
+  assert.equal(result.changed, 2);
+  assert.equal(buildBriefing([a], prefs({ minutes: 0 }), NOW).items[0].change, null);
+});
+
+test('every preset produces a brief that accounts for all stories', () => {
+  const stories = Array.from({ length: 25 }, (_, i) => story({ importance: 1 + (i % 5), intensity: 1 + ((i * 2) % 5) }));
+  for (const preset of PRESETS) {
+    const result = buildBriefing(stories, prefs({ dials: preset.dials, minutes: 5 }), NOW);
+    assert.equal(result.items.length + result.overflow.length + result.filtered.length + result.muted.length, 25, preset.id);
+    assert.ok(result.items.length > 0, preset.id);
+  }
+});
+
+test('important stories left out of the brief are always named, never silently lost', () => {
+  const timing = { readSec: { headline: 4, short: 40, full: 80, calm: 10 } };
+  const stories = [story({ importance: 5, ...timing }), story({ importance: 4, ...timing }), story({ importance: 2, ...timing })];
+  const tight = buildBriefing(stories, prefs({ dials: dl({ density: 3 }), minutes: 1 }), NOW);
+  const shown = new Set(tight.items.map(item => item.story.id));
+  for (const s of stories.filter(x => x.importance >= 4)) {
+    assert.ok(shown.has(s.id) || tight.missedImportant.some(m => m.id === s.id), 'important story accounted for');
+  }
+  assert.ok(tight.missedImportant.every(m => m.importance >= 4));
+  const muted = story({ importance: 4, topics: ['sports'], primaryTopic: 'sports' });
+  assert.deepEqual(buildBriefing([muted], prefs({ topics: { sports: 'mute' }, minutes: 0 }), NOW).missedImportant.map(m => m.id), [muted.id]);
 });

@@ -180,3 +180,44 @@ test('onProgress reports each phase and the enrichment count', async () => {
     assert.equal(enrich[0].done, 0);
     assert.equal(enrich[enrich.length - 1].done, enrich[enrich.length - 1].total);
 });
+
+const { buildTimeline } = require('../src/pipeline/run');
+
+test('a story that develops keeps a timeline of its versions, and an identical rewrite does not add one', async () => {
+    const d = deps();
+    await runPipeline(d);
+    const first = d.store.read('stories.json').stories.find(s => s.headline === 'סיפור E1');
+    assert.equal(first.timeline.length, 1);
+    assert.deepEqual(first.known, []);
+
+    let call = 0;
+    d.ai = makeAi({
+        publish_story: ({ user }) => {
+            const marker = /\[(E\d+)\]/.exec(user)[1];
+            call += 1;
+            return { headline: `סיפור ${marker} מעודכן`, oneLiner: `תקציר חדש ${marker}`, bullets: [], calmSummary: 'סיכום', topics: ['politics'], intensity: 2, importance: 3, sourceHeat: 2, graphic: false, whatsNew: 'דיווח חדש מהשטח' };
+        },
+    });
+    d.parser = feeds({ a: [post('E1', 1), post('E2', 2)], b: [post('E1', 3)], c: [post('E1', 4, 3)] });
+    await runPipeline({ ...d, now: () => new Date(NOW.getTime() + 3_600_000) });
+    const second = d.store.read('stories.json').stories.find(s => s.id === first.id);
+    assert.equal(second.timeline.length, 2);
+    assert.equal(second.timeline[0].headline, 'סיפור E1');
+    assert.equal(second.timeline[1].headline, 'סיפור E1 מעודכן');
+    assert.equal(second.timeline[1].note, 'דיווח חדש מהשטח');
+    assert.ok(call >= 1);
+});
+
+test('buildTimeline caps its length and collapses identical versions', () => {
+    const at = i => new Date(Date.UTC(2026, 10, 1, i)).toISOString();
+    let previous = null;
+    for (let i = 0; i < 12; i++) {
+        const timeline = buildTimeline(previous, { headline: `כותרת ${i}`, oneLiner: `תקציר ${i}`, whatsNew: '' }, at(i));
+        previous = { updatedAt: at(i), headline: `כותרת ${i}`, oneLiner: `תקציר ${i}`, timeline };
+    }
+    assert.equal(previous.timeline.length, 8);
+    assert.equal(previous.timeline[7].headline, 'כותרת 11');
+    const same = buildTimeline(previous, { headline: 'כותרת 11', oneLiner: 'תקציר 11', whatsNew: '' }, at(20));
+    assert.equal(same.length, 8);
+    assert.equal(same[7].at, at(20));
+});

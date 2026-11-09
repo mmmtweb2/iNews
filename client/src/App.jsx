@@ -9,12 +9,16 @@ import TopicsDialog from './components/TopicsDialog.jsx'
 import AboutDialog from './components/AboutDialog.jsx'
 import Dialog from './components/Dialog.jsx'
 import ViewTabs from './components/ViewTabs.jsx'
+import DoneCard from './components/DoneCard.jsx'
+import ChangesBar from './components/ChangesBar.jsx'
 import FollowView from './components/FollowView.jsx'
 import { FilteredSection, OverflowSection } from './components/Sections.jsx'
 import { DemoBanner, EmptyBrief, EmptyFeed, ErrorState, FeedSkeleton } from './components/States.jsx'
 import { buildBriefing } from './lib/briefing.js'
 import { matchFollows, unreadCount } from './lib/follow.js'
-import { useActiveStory, useFeed, useFollows, useNow, usePrefs, useRefresh } from './lib/hooks.js'
+import { useActiveStory, useFeed, useFollows, useNow, usePrefs, useRefresh, useSeen } from './lib/hooks.js'
+import { heatOf, isDefaultDials, DEFAULT_DIALS } from './lib/dials.js'
+import { onlyChanged, summarizeChanges } from './lib/seen.js'
 
 const NO_STORIES = []
 
@@ -27,16 +31,23 @@ export default function App() {
   const now = useNow()
   const [panel, setPanel] = useState(null) // 'tune' | 'topics' | 'about'
 
+  const heat = heatOf(prefs.dials)
   useEffect(() => {
-    document.documentElement.dataset.heat = prefs.heat
-  }, [prefs.heat])
+    document.documentElement.dataset.heat = heat
+  }, [heat])
 
   const stories = data ? data.stories : NO_STORIES
   const topics = data ? data.topics : NO_STORIES
   const leanLabels = data ? data.leanLabels : {}
   const topicLabels = useMemo(() => Object.fromEntries(topics.map(topic => [topic.id, topic.label])), [topics])
 
-  const briefing = useMemo(() => buildBriefing(stories, prefs, now), [stories, prefs, now])
+  const { seen, markSeen } = useSeen(stories)
+  const [onlyNew, setOnlyNew] = useState(false)
+  const changes = useMemo(() => summarizeChanges(stories, seen), [stories, seen])
+  const showOnlyNew = onlyNew && changes.added + changes.updated > 0
+  const briefStories = useMemo(() => (showOnlyNew ? onlyChanged(stories, seen) : stories), [showOnlyNew, stories, seen])
+  const briefing = useMemo(() => buildBriefing(briefStories, prefs, now, { seen }), [briefStories, prefs, now, seen])
+  const [moreOpen, setMoreOpen] = useState(false)
   const activeId = useActiveStory(useMemo(() => briefing.items.map(item => item.story.id), [briefing]))
 
   const getSnapshot = useCallback(() => new Map(stories.map(story => [story.id, story.updatedAt])), [stories])
@@ -96,13 +107,15 @@ export default function App() {
               <ViewTabs view={view} onChange={selectView} unread={unread} />
 
               {view === 'following' && (
-                <FollowView matches={shownMatches} heat={prefs.heat} now={now} onUnfollow={follows.remove} onBack={() => selectView('brief')} topicLabels={topicLabels} leanLabels={leanLabels} showImages={prefs.images} onHide={hide} followedIds={followedIds} onFollow={follows.toggle} />
+                <FollowView matches={shownMatches} dials={prefs.dials} now={now} onUnfollow={follows.remove} onBack={() => selectView('brief')} topicLabels={topicLabels} leanLabels={leanLabels} showImages={prefs.images} onHide={hide} followedIds={followedIds} onFollow={follows.toggle} />
               )}
+
+              {view === 'brief' && <ChangesBar summary={changes} only={showOnlyNew} onToggle={() => setOnlyNew(value => !value)} onMarkSeen={() => { markSeen(); setOnlyNew(false) }} />}
 
               {view === 'brief' && <BriefBar items={briefing.items} usedSec={briefing.usedSec} budgetSec={briefing.budgetSec} activeId={activeId} />}
 
               {view === 'brief' && briefing.items.length === 0 ? (
-                <EmptyBrief heat={prefs.heat} onShowAll={() => update({ heat: 'all' })} onEditTopics={() => setPanel('topics')} />
+                <EmptyBrief canShowAll={!isDefaultDials(prefs.dials)} onShowAll={() => update({ dials: DEFAULT_DIALS })} onEditTopics={() => setPanel('topics')} />
               ) : view === 'brief' ? (
                 <ol className="mt-6 list-none p-0">
                   {briefing.items.map((entry, index) => (
@@ -113,14 +126,15 @@ export default function App() {
                 </ol>
               ) : null}
 
-              {view === 'brief' && <OverflowSection entries={briefing.overflow} {...cardProps} />}
+              {view === 'brief' && briefing.items.length > 0 && <div className="mt-2"><DoneCard briefing={briefing} onOpenMore={() => setMoreOpen(true)} /></div>}
+              {view === 'brief' && <OverflowSection entries={briefing.overflow} open={moreOpen} onToggle={setMoreOpen} {...cardProps} />}
               {view === 'brief' && <FilteredSection stories={briefing.filtered} mutedCount={briefing.muted.length} onEditTopics={() => setPanel('topics')} />}
             </>
           )}
         </main>
 
         <aside className="hidden lg:block">
-          <div className="sticky top-6">{instrument}</div>
+          <div className="sticky top-6 max-h-[calc(100dvh-3rem)] overflow-y-auto overscroll-contain rounded-[14px]">{instrument}</div>
         </aside>
       </div>
 

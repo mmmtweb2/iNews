@@ -39,6 +39,8 @@ const STORIES = [
         why: 'ההחלטה משפיעה ישירות על גובה החזרי המשכנתאות ועל תשואות החיסכון.',
         calm: 'הבנק המרכזי השאיר את הריבית ללא שינוי בהחלטה פה אחד, ומסר שההחלטות הבאות ייגזרו מנתוני האינפלציה והתעסוקה.',
         entities: ['ריבית', 'אינפלציה', 'משכנתאות'],
+        known: ['הריבית נשארה ללא שינוי', 'ההחלטה התקבלה פה אחד'],
+        unknown: ['לא פורסם אם הריבית תשתנה בהחלטה הבאה'],
     }],
     [63, ['politics'], 2, 4, 3, false, ['mirror', 'nation', 'evening', 'north'], {
         headline: 'ועדת חוקה אישרה לקריאה שנייה הצעת חוק לשינוי מימון המפלגות',
@@ -48,6 +50,9 @@ const STORIES = [
         calm: 'ועדת החוקה אישרה לקריאה שנייה הצעת חוק לשינוי מימון המפלגות. התומכים והמתנגדים חלוקים בשאלה אם היא תצמצם את התלות בתרומות או תקשה על מפלגות חדשות.',
         contested: 'התומכים אומרים שההצעה מצמצמת תלות בתרומות פרטיות; המתנגדים אומרים שהיא מקשה על מפלגות חדשות להיכנס.',
         entities: ['ועדת חוקה', 'מימון מפלגות', 'קריאה שנייה'],
+        known: ['הוועדה אישרה את ההצעה לקריאה שנייה ברוב קולות', 'יועצים משפטיים ביקשו תיקונים לפני ההצבעה במליאה'],
+        claimed: ['לפי התומכים, ההצעה תצמצם את התלות בתרומות פרטיות', 'לפי המתנגדים, ההצעה תקשה על כניסת מפלגות חדשות'],
+        unknown: ['לא פורסם מתי תעלה ההצעה להצבעה במליאה'],
         framing: [[0, 'מציג את ההצעה בעיקר דרך הביקורת של המתנגדים'], [1, 'מציג את ההצעה בעיקר דרך הטענה שהיא מצמצמת תרומות פרטיות'], [2, 'מדווח על מהלך ההצבעה ועל הערות היועצים המשפטיים']],
     }],
     [90, ['politics', 'society'], 3, 3, 3, false, ['nation'], {
@@ -206,6 +211,9 @@ const STORIES = [
         calm: 'שביתה במפעל גדול נכנסת ליום השלישי. הוועד דורש עדכון שכר והבטחת תנאי פרישה, וההנהלה אומרת שהדרישות חורגות מהתקציב.',
         contested: 'הוועד אומר שהדרישות סבירות; ההנהלה אומרת שהן חורגות מהתקציב.',
         entities: ['שביתה', 'שכר'],
+        known: ['השביתה נמשכת כבר שלושה ימים', 'הוועד וההנהלה ממשיכים לדון'],
+        claimed: ['לפי ההנהלה, הדרישות חורגות מהתקציב', 'לפי הוועד, הדרישות סבירות'],
+        unknown: ['לא ברור מתי יחזור קו הייצור לפעול'],
         framing: [[1, 'מציג את השביתה בעיקר דרך מצוקת העובדים'], [2, 'מציג את השביתה בעיקר דרך הנזק לייצור ולאספקה']],
     }],
     [600, ['economy'], 2, 3, 2, false, ['biz', 'evening'], {
@@ -227,6 +235,10 @@ const UPDATE = {
     bullets: ['העובדים יחזרו לעבודה כבר מחר', 'לקוחות גדולים אמרו שיבדקו את לוחות האספקה מחדש'],
     why: 'סיום השביתה מקטין את הסיכון לעיכובים באספקה ולעלייה במחירים.',
     calm: 'השביתה במפעל הסתיימה אחרי שהוועד וההנהלה חתמו על הסכם שכר. העובדים חוזרים לעבודה מחר.',
+    known: ['הוועד וההנהלה חתמו על הסכם שכר', 'העובדים יחזרו לעבודה מחר בבוקר'],
+    claimed: ['לפי לקוחות המפעל, לוחות האספקה ייבדקו מחדש'],
+    unknown: ['פרטי ההסכם המלאים טרם פורסמו'],
+    whatsNew: 'הוועד וההנהלה חתמו על הסכם שכר והשביתה הסתיימה.',
 };
 
 const FOLLOWUPS = [
@@ -282,6 +294,11 @@ function makeStory(tuple, index, now, prefix) {
         whyItMatters: copy.why,
         calmSummary: copy.calm,
         contested: copy.contested || '',
+        known: copy.known || [],
+        claimed: copy.claimed || [],
+        unknown: copy.unknown || [],
+        whatsNew: '',
+        timeline: [],
         topics,
         entities: copy.entities || [],
         intensity,
@@ -298,6 +315,7 @@ function makeStory(tuple, index, now, prefix) {
         image: null,
         model: 'demo',
     };
+    story.timeline = [{ at: story.updatedAt, headline: story.headline, summary: story.oneLiner, note: '' }];
     story.readSec = readTimes(story);
     return story;
 }
@@ -309,7 +327,22 @@ function applyRefreshWave(existing, now) {
     const stories = existing.map(story => ({ ...story }));
     const target = stories.find(story => story.headline.startsWith(UPDATE_PREFIX));
     if (target) {
-        Object.assign(target, { headline: UPDATE.headline, oneLiner: UPDATE.oneLiner, bullets: UPDATE.bullets, whyItMatters: UPDATE.why, calmSummary: UPDATE.calm, contested: '', framing: [], updatedAt: stamp });
+        const before = target.timeline && target.timeline.length ? target.timeline : [{ at: target.updatedAt, headline: target.headline, summary: target.oneLiner, note: '' }];
+        Object.assign(target, {
+            headline: UPDATE.headline,
+            oneLiner: UPDATE.oneLiner,
+            bullets: UPDATE.bullets,
+            whyItMatters: UPDATE.why,
+            calmSummary: UPDATE.calm,
+            contested: '',
+            framing: [],
+            known: UPDATE.known,
+            claimed: UPDATE.claimed,
+            unknown: UPDATE.unknown,
+            whatsNew: UPDATE.whatsNew,
+            timeline: [...before, { at: stamp, headline: UPDATE.headline, summary: UPDATE.oneLiner, note: UPDATE.whatsNew }],
+            updatedAt: stamp,
+        });
         target.readSec = readTimes(target);
     }
     FOLLOWUPS.forEach((tuple, index) => {

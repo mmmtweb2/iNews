@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadPrefs, sanitizePrefs, savePrefs } from './prefs.js'
+import { loadSeen, saveSeen, snapshotSeen } from './seen.js'
 import { loadFollows, markViewed, MAX_FOLLOWS, sanitizeFollows, saveFollows, snapshotStory } from './follow.js'
 
 const REFRESH_MS = 5 * 60_000
@@ -203,4 +204,33 @@ export function useFollows() {
   const viewed = useCallback(stories => setState(previous => ({ marks: markViewed(previous.marks, stories) })), [])
 
   return { marks: state.marks, toggle, remove, viewed }
+}
+
+
+// What the reader had already seen when this visit began (null on a first visit). The record is
+// updated when they leave the page, so the labels stay steady while they read.
+export function useSeen(stories) {
+  const [seen, setSeen] = useState(() => loadSeen())
+  const latest = useRef(stories)
+  useEffect(() => {
+    latest.current = stories
+  }, [stories])
+
+  useEffect(() => {
+    const save = () => saveSeen(latest.current)
+    const onHide = () => document.visibilityState === 'hidden' && save()
+    document.addEventListener('visibilitychange', onHide)
+    window.addEventListener('pagehide', save)
+    return () => {
+      document.removeEventListener('visibilitychange', onHide)
+      window.removeEventListener('pagehide', save)
+    }
+  }, [])
+
+  const markSeen = useCallback(() => {
+    saveSeen(latest.current)
+    setSeen(snapshotSeen(latest.current))
+  }, [])
+
+  return { seen, markSeen }
 }

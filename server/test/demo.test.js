@@ -79,3 +79,15 @@ test('running the demo refresh twice does not duplicate follow-ups', async () =>
     await run(() => {});
     assert.equal(store.read('stories.json').stories.length, n);
 });
+
+test('demo stories carry known / claimed / unknown, and the updated story has a two-step timeline', () => {
+  const t0 = new Date('2026-11-01T12:00:00Z');
+  const wave1 = buildDemoStories(t0, 1);
+  const party = wave1.find(s => s.entities.includes('ועדת חוקה'));
+  assert.ok(party.known.length && party.claimed.length && party.unknown.length);
+  const wave2 = buildDemoStories(t0, 2);
+  const strike = wave2.find(s => s.headline.startsWith('השביתה במפעל הסתיימה'));
+  assert.equal(strike.timeline.length, 2);
+  assert.equal(strike.timeline[0].headline.startsWith('שביתה במפעל'), true);
+  assert.ok(strike.whatsNew);
+});

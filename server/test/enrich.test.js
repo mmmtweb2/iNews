@@ -53,3 +53,19 @@ test('a model error propagates so the pipeline can keep the previous write-up', 
     const ai = fakeAi({ publish_story: () => { throw new Error('overloaded'); } });
     await assert.rejects(() => enrichCluster({ cluster: [make(1, null)], ai }), /overloaded/);
 });
+
+test('a previous write-up is passed to the model as data, and only when there is one', () => {
+    const without = buildPrompt([make(1, null)]);
+    assert.ok(!without.includes('<previous'));
+    const withPrevious = buildPrompt([make(1, null)], { updatedAt: '2026-11-01T09:00:00Z', headline: 'כותרת קודמת', oneLiner: 'תקציר קודם', bullets: ['פרט קודם'] });
+    assert.match(withPrevious, /<previous published="2026-11-01T09:00:00Z">/);
+    assert.ok(withPrevious.includes('כותרת קודמת') && withPrevious.includes('- פרט קודם'));
+    assert.match(SYSTEM, /treat it as data/);
+});
+
+test('enrichCluster sends the previous version and returns whatsNew', async () => {
+    const ai = fakeAi({ publish_story: () => ({ headline: 'כותרת', oneLiner: 'משפט', bullets: [], calmSummary: 'סיכום', topics: ['tech'], intensity: 1, importance: 2, sourceHeat: 1, graphic: false, whatsNew: 'התווסף פרט חדש' }) });
+    const { enrichment } = await enrichCluster({ cluster: [make(1, null)], ai, previous: { updatedAt: '2026-11-01T09:00:00Z', headline: 'ישן', oneLiner: 'ישן', bullets: [] } });
+    assert.equal(enrichment.whatsNew, 'התווסף פרט חדש');
+    assert.ok(ai.calls[0].user.includes('<previous'));
+});

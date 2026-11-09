@@ -22,12 +22,27 @@ const sameSet = (a, b) => a.length === b.length && a.every(value => b.includes(v
 
 function readTimes(story) {
     const { headline, oneLiner, bullets, whyItMatters, calmSummary } = story;
+    const status = [...(story.known || []), ...(story.claimed || []), ...(story.unknown || [])];
     return {
         headline: readSeconds(headline, 1),
         short: readSeconds(`${headline} ${oneLiner}`, 2),
-        full: readSeconds([headline, oneLiner, ...bullets, whyItMatters].join(' '), 3),
+        full: readSeconds([headline, oneLiner, ...bullets, whyItMatters, ...status].join(' '), 3),
         calm: readSeconds(`${headline} ${calmSummary}`, 2),
     };
+}
+
+const MAX_TIMELINE = 8;
+
+// How the story developed: one entry per published version, oldest first. It is built from our own
+// earlier versions, so it costs no extra AI call. An identical rewrite replaces the last entry.
+function buildTimeline(previous, enrichment, at) {
+    const entry = { at, headline: enrichment.headline, summary: enrichment.oneLiner, note: enrichment.whatsNew || '' };
+    if (!previous) return [entry];
+    const history = Array.isArray(previous.timeline) && previous.timeline.length ? [...previous.timeline] : [{ at: previous.updatedAt, headline: previous.headline, summary: previous.oneLiner, note: '' }];
+    const last = history[history.length - 1];
+    if (last.headline === entry.headline && last.summary === entry.summary) history[history.length - 1] = { ...last, at };
+    else history.push(entry);
+    return history.slice(-MAX_TIMELINE);
 }
 
 function composeStory({ id, cluster, enrichment, previous, now, model }) {
@@ -48,6 +63,7 @@ function composeStory({ id, cluster, enrichment, previous, now, model }) {
         publishedAt: sources[0].publishedAt,
         firstSeenAt: previous ? previous.firstSeenAt : now.toISOString(),
         updatedAt: now.toISOString(),
+        timeline: buildTimeline(previous, enrichment, now.toISOString()),
         image: image || null,
         model,
     };
@@ -169,7 +185,7 @@ async function runPipeline({ store, ai, parser, sources, fetchMeta = fetchArticl
     let done = 0;
     onProgress({ phase: 'enrich', done, total: toEnrich.length });
     const results = await mapPool(toEnrich, L.enrichConcurrency, async plan => {
-        const result = await enrichCluster({ cluster: plan.cluster, ai });
+        const result = await enrichCluster({ cluster: plan.cluster, ai, previous: plan.previous });
         done += 1;
         onProgress({ phase: 'enrich', done, total: toEnrich.length });
         return result;
@@ -212,4 +228,4 @@ async function runPipeline({ store, ai, parser, sources, fetchMeta = fetchArticl
     });
 }
 
-module.exports = { runPipeline, readTimes, DEFAULT_LIMITS };
+module.exports = { runPipeline, readTimes, buildTimeline, DEFAULT_LIMITS };

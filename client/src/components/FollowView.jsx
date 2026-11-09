@@ -19,7 +19,7 @@ function Empty({ onBack }) {
 
 // The followed stories, each with what has happened since: changes to the story itself and
 // later stories about the same thing. The intensity setting still applies (softened, not hidden).
-export default function FollowView({ matches, heat, now, onUnfollow, onBack, ...cardProps }) {
+export default function FollowView({ matches, dials, now, onUnfollow, onBack, ...cardProps }) {
   if (!matches.length) return <Empty onBack={onBack} />
 
   return (
@@ -41,7 +41,7 @@ export default function FollowView({ matches, heat, now, onUnfollow, onBack, ...
           <div className="mt-6 border-s-2 border-rule ps-5 sm:ps-8">
             {updated && current && (
               <div>
-                <StoryItem entry={entryForFollowed(current, heat)} showClock={false} variant="standard" now={now} badge="עודכנה" {...cardProps} />
+                <StoryItem entry={entryForFollowed(current, dials, 'full')} showClock={false} variant="standard" expandTimeline now={now} badge="עודכנה" {...cardProps} />
               </div>
             )}
 
@@ -58,7 +58,7 @@ export default function FollowView({ matches, heat, now, onUnfollow, onBack, ...
             )}
 
             {related.map(({ story, shared, isNew }) => (
-              <StoryItem key={story.id} entry={entryForFollowed(story, heat)} showClock={false} variant="compact" now={now} badge={isNew ? 'חדש' : null} note={`קשור כי מופיעים בה: ${shared.join(', ')}`} {...cardProps} />
+              <StoryItem key={story.id} entry={entryForFollowed(story, dials)} showClock={false} variant="compact" now={now} badge={isNew ? 'חדש' : null} note={`קשור כי מופיעים בה: ${shared.join(', ')}`} {...cardProps} />
             ))}
 
             {!updated && related.length === 0 && (

@@ -83,6 +83,14 @@ function sanitizeEnrichment(raw, { members, corpus, defaultTopic = 'society' }) 
     const graphic = raw.graphic === true;
     if (graphic && intensity < 4) intensity = 4;
 
+    // "Known" means several outlets agree, so it needs at least two articles. Everything is grounded and short.
+    const listOf = (value, max) => uniqueStrings(value).map(text => truncate(text, 200)).filter(grounded).slice(0, max);
+    const known = members.length >= 2 ? listOf(raw.known, 4) : [];
+    const claimed = listOf(raw.claimed, 3);
+    const unknown = listOf(raw.unknown, 3);
+    let whatsNew = truncate(raw.whatsNew, 200);
+    if (!grounded(whatsNew)) whatsNew = '';
+
     const framing = [];
     if (members.length >= 2 && Array.isArray(raw.framing)) {
         const used = new Set();
@@ -96,7 +104,7 @@ function sanitizeEnrichment(raw, { members, corpus, defaultTopic = 'society' }) 
         }
     }
 
-    return { headline, oneLiner, bullets, whyItMatters, calmSummary, contested, topics, entities, intensity, importance, sourceHeat, graphic, framing };
+    return { headline, oneLiner, bullets, whyItMatters, calmSummary, contested, topics, entities, intensity, importance, sourceHeat, graphic, known, claimed, unknown, whatsNew, framing };
 }
 
 module.exports = { sanitizeEnrichment, ungroundedNumbers, numberTokens };

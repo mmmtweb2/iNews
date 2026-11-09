@@ -5,7 +5,7 @@
 // Relatedness is deliberately plain and explainable: two stories are related when they
 // share enough distinctive words or named things, and the interface shows which ones.
 
-import { HEAT_CAP } from './briefing.js'
+import { toneCap } from './briefing.js'
 
 const KEY = 'inews.follows.v1'
 export const MAX_FOLLOWS = 20
@@ -187,7 +187,7 @@ export function markViewed(marks, stories, now = Date.now()) {
 }
 
 // How a followed-up story is shown: the reader's intensity setting still applies, softened rather than hidden.
-export function entryForFollowed(story, heat) {
-  const cap = HEAT_CAP[heat] ?? HEAT_CAP.balanced
-  return { story, tone: story.intensity > cap ? 'calm' : 'normal', depth: 'short', startSec: 0 }
+export function entryForFollowed(story, dials, depth = 'short') {
+  const cap = toneCap(dials)
+  return { story, tone: story.intensity > cap ? 'calm' : 'normal', depth, startSec: 0 }
 }

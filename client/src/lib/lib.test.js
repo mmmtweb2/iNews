@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { formatClock, timeAgo, storiesCount, minutesLabel } from './format.js';
 import { sanitizePrefs, loadPrefs, savePrefs, DEFAULT_PREFS } from './prefs.js';
+import { PRESETS, DEFAULT_DIALS, matchPreset, sanitizeDials, heatOf } from './dials.js';
 
 test('formatClock renders minutes and zero-padded seconds', () => {
   assert.equal(formatClock(0), '0:00');
@@ -34,7 +35,8 @@ test('sanitizePrefs repairs anything that is not valid', () => {
   assert.deepEqual(sanitizePrefs(null), DEFAULT_PREFS);
   const result = sanitizePrefs({ minutes: 7, heat: 'volcano', topics: { tech: 'follow', sports: 'meh', world: 'mute' }, keywords: [' AI ', 'ai', '', 5, 'x'.repeat(50)], images: false, hidden: ['a', 3, 'b'], onboarded: 'yes' });
   assert.equal(result.minutes, 5);
-  assert.equal(result.heat, 'balanced');
+  assert.deepEqual(result.dials, DEFAULT_PREFS.dials);
+  assert.equal(result.heat, undefined);
   assert.deepEqual(result.topics, { tech: 'follow', world: 'mute' });
   assert.deepEqual(result.keywords, ['AI', 'x'.repeat(30)]);
   assert.equal(result.images, false);
@@ -95,3 +97,37 @@ test('refreshMessage says what happened', () => {
   assert.match(refreshMessage({ kind: 'limit' }), /מכסת/)
   assert.match(refreshMessage({ kind: 'nope' }), /נכשל/)
 })
+
+test('older saved settings with a three-way heat are carried over to the tone dial', () => {
+  assert.equal(sanitizePrefs({ heat: 'calm' }).dials.tone, 1);
+  assert.equal(sanitizePrefs({ heat: 'all' }).dials.tone, 3);
+  assert.equal(sanitizePrefs({ heat: 'balanced' }).dials.tone, 2);
+});
+
+test('sanitizePrefs keeps valid dials and repairs the rest', () => {
+  const result = sanitizePrefs({ dials: { tone: 0, density: 9, prominence: 'x', focus: 3.4, freshness: -1 } });
+  assert.deepEqual(result.dials, { tone: 0, density: 2, prominence: 2, focus: 3, freshness: 2 });
+});
+
+test('presets are valid, distinct, and recognised from their dials', () => {
+  assert.equal(new Set(PRESETS.map(p => JSON.stringify(p.dials))).size, PRESETS.length);
+  for (const preset of PRESETS) {
+    assert.deepEqual(sanitizeDials(preset.dials), preset.dials);
+    assert.equal(matchPreset(preset.dials).id, preset.id);
+  }
+  assert.equal(matchPreset({ tone: 0, density: 0, prominence: 0, focus: 0, freshness: 0 }), null);
+  assert.deepEqual(PRESETS[0].dials, DEFAULT_DIALS);
+});
+
+test('the page accent follows the tone dial', () => {
+  assert.deepEqual([0, 1, 2, 3, 4].map(tone => heatOf({ tone })), ['calm', 'calm', 'balanced', 'all', 'all']);
+});
+
+test('formatDate says today, yesterday, or the date', async () => {
+  const { formatDate } = await import('./format.js');
+  const now = new Date(2026, 10, 9, 21, 0).getTime();
+  assert.equal(formatDate(new Date(2026, 10, 9, 8, 5).toISOString(), now), 'היום 08:05');
+  assert.equal(formatDate(new Date(2026, 10, 8, 23, 30).toISOString(), now), 'אתמול 23:30');
+  assert.equal(formatDate(new Date(2026, 10, 3, 14, 30).toISOString(), now), '3 בנוב׳ 14:30');
+  assert.equal(formatDate('nope', now), '');
+});

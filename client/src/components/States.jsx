@@ -65,15 +65,15 @@ export function EmptyFeed({ refresh }) {
   )
 }
 
-export function EmptyBrief({ heat, onShowAll, onEditTopics }) {
+export function EmptyBrief({ onShowAll, canShowAll, onEditTopics }) {
   return (
     <Message
       title="אין ידיעות שמתאימות להגדרות"
       action={
         <>
-          {heat !== 'all' && (
+          {canShowAll && (
             <button type="button" onClick={onShowAll} className={buttonClass}>
-              הצג את כל הרמות
+              חזרה לסגנון מאוזן
             </button>
           )}
           <button type="button" onClick={onEditTopics} className={ghostClass}>
@@ -82,7 +82,7 @@ export function EmptyBrief({ heat, onShowAll, onEditTopics }) {
         </>
       }
     >
-      רמת הריגוש או התחומים שבחרת סוננו הכול. אפשר להרחיב אחד מהם.
+      הסגנון או התחומים שבחרת סוננו הכול. אפשר להרחיב אחד מהם.
     </Message>
   )
 }
