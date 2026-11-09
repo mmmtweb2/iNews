@@ -70,7 +70,7 @@ npm run demo
 
 ## הרצה ב-GitHub Codespaces
 
-1. בגיטהאב: Code, Codespaces, Create codespace on `feat/calm-ai-news`.
+1. בגיטהאב: Code, Codespaces, Create codespace on הענף שרוצים לראות (כרגע `feat/style-dials-timeline`).
 2. מצב הדגמה (ללא מפתח, ידיעות בדויות): `npm run demo`. הפורט 3000 ייפתח כתצוגה מקדימה.
 3. מצב חי: ב-GitHub, Settings, Secrets and variables, Codespaces, הוסף secret בשם `ANTHROPIC_API_KEY` (לפני יצירת ה-Codespace, או הפעל אותו מחדש). אחר כך `npm run live`. האתר עולה ריק ומחכה: ידיעות נאספות רק אחרי לחיצה על **טען חדשות** (או **רענן**). הריצה הראשונה אורכת כמה דקות, והיא מציגה התקדמות. אחריה בדוק את `/api/status` לראות אילו מקורות נכשלו. במצב הדגמה, לחיצה על רענן מוסיפה כמה ידיעות בדויות והמשכים, כדי לנסות את לשונית "במעקב".
 
